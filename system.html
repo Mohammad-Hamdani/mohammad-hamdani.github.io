@@ -431,9 +431,9 @@ footer p{max-width:90ch}
       <a href="./">Summary</a>
       <a href="#system">System</a>
       <a href="#playbooks">Playbooks</a>
+      <a href="#voice">Voice</a>
       <a href="#chat">Chat</a>
       <a href="#email">Email</a>
-      <a href="#voice">Voice</a>
       <a href="#smartreply">Smart Reply</a>
       <a href="#time">Time</a>
       <a href="#reliability">Reliability</a>
@@ -587,14 +587,33 @@ footer p{max-width:90ch}
   </div>
 </section>
 
+<!-- VOICE -->
+<section id="voice">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="sec-label"><b>03 · Voice</b>The communication layer</div>
+      <div>
+        <h2>An accurate answer that reads cold <em>is still a bad answer.</em></h2>
+        <p class="lede">Facts were half the job. Every draft also passed through a communication layer: rules for how a reply sounds, how long it runs and what it never asks. I authored the guidelines for email and chat, and played a major part in the system prompt that set Smart Reply's voice. The chat and email demos below follow these rules.</p>
+        <p class="small muted" style="margin-top:10px"><span class="ev c">Principles only</span> In my own words. No guideline text or prompt text appears here.</p>
+      </div>
+    </div>
+    <div class="own rv" style="margin-top:0">
+      <div class="card me"><h4>Email communication guidelines</h4><p class="small muted" style="margin:0 0 10px">US Mobile's standard for every email draft. I authored them.</p><ul><li>Warmth and ownership in the first line</li><li>The real steps in the reply, never only a link</li><li>One complete reply, with numbered steps</li><li>Never ask for what the customer already sent</li></ul><p class="small" style="margin:12px 0 0"><a href="#email">See them in the email demo</a></p></div>
+      <div class="card me"><h4>Chat communication guidelines</h4><p class="small muted" style="margin:0 0 10px">I authored them and built them into every chat playbook, because chat is a paced conversation, not a document.</p><ul><li>Two or three sentences a message, longer answers split in two</li><li>Never more than two questions at once</li><li>Every "we can't" comes with what we can do instead</li><li>If the customer says "one sec", acknowledge once and wait</li></ul><p class="small" style="margin:12px 0 0"><a href="#chat">See them in the chat demo</a></p></div>
+      <div class="card me"><h4>Smart Reply's system prompt</h4><p class="small muted" style="margin:0 0 10px">The prompt set how the in-house assistant sounded on every draft. I played a major part in it and made a key update to it on my own.</p><ul><li>Three live complaints: account details crammed into greetings, replies too long, a cold tone</li><li>Each traced to specific lines in the prompt</li><li>Addressed with six edits</li></ul><p class="small" style="margin:12px 0 0"><a href="#smartreply">See Smart Reply in action</a></p></div>
+    </div>
+  </div>
+</section>
+
 <!-- CHAT DEMO -->
 <section id="chat">
   <div class="wrap">
     <div class="sec-head rv">
-      <div class="sec-label"><b>03 · Chat</b>Manual vs playbook-driven</div>
+      <div class="sec-label"><b>04 · Chat</b>Manual vs playbook-driven</div>
       <div>
         <h2>Same customer, same question. <em>Watch where the time goes.</em></h2>
-        <p class="lede">A customer set up an eSIM and has calls but no data. On the left, a capable agent does it by hand. On the right, Auto Assist drafts from a well-built playbook and the agent reviews it. One sends an article. The other solves it in two taps.</p>
+        <p class="lede">A customer set up an eSIM and has calls but no data. On the left, a capable agent does it by hand. On the right, Auto Assist drafts from a well-built playbook and the agent reviews it. One sends an article. The other solves it in two taps. The draft follows the <a href="#voice">chat communication guidelines</a> I authored: short, paced messages and never more than two asks at once.</p>
         <p class="small muted" style="margin-top:10px"><span class="ev i">Illustrative demo</span> Fictional carrier and customer. Timings are stated assumptions for this one reply, not measurements. Steps follow Apple's published iPhone guidance.</p>
       </div>
     </div>
@@ -688,10 +707,10 @@ footer p{max-width:90ch}
 <section id="email">
   <div class="wrap">
     <div class="sec-head rv">
-      <div class="sec-label"><b>04 · Email</b>Context over templates</div>
+      <div class="sec-label"><b>05 · Email</b>Context over templates</div>
       <div>
         <h2>The third email about the same problem <em>shouldn't read like the first.</em></h2>
-        <p class="lede">I ran AI drafting for the email team too, on a separate set of nine playbooks with their own conventions. Email exposes lazy writing fast, because the customer has time to reread it. Structure is what lets a draft be warm, specific and useful at once.</p>
+        <p class="lede">I ran AI drafting for the email team too, on a separate set of nine playbooks with their own conventions. Email exposes lazy writing fast, because the customer has time to reread it. Structure is what lets a draft be warm, specific and useful at once. Every draft here follows the <a href="#voice">email communication guidelines</a> I authored.</p>
         <p class="small muted" style="margin-top:10px"><span class="ev i">Illustrative demo</span> Fictional carrier, customer and case. Not a production output.</p>
       </div>
     </div>
@@ -704,7 +723,7 @@ footer p{max-width:90ch}
     <div class="inputs rv" aria-label="What the structured draft draws on">
       <div class="card"><h4>Case context</h4><ul><li>Third contact in four days</li><li>Details submitted twice, correct both times</li><li>Porting team: held until the previous carrier releases the number</li><li>Port Order Number on file: PON 48213-NL</li></ul></div>
       <div class="card"><h4>Approved information</h4><ul><li>Sharing the PON with the previous carrier lets them find and release the number</li><li>Voice specialists can run a 3-way call with the previous carrier</li><li>Callbacks run 9 AM to 9 PM ET</li><li>Old service stays active until the transfer completes</li></ul></div>
-      <div class="card"><h4>Communication standards</h4><ul><li>Warmth and ownership in the first line</li><li>Never ask for something the customer already sent</li><li>One clear next action, as numbered steps</li><li>Offer a done-for-you path on repeat contacts</li><li>No em dashes, approved closing</li></ul></div>
+      <div class="card"><h4>Email communication guidelines</h4><p class="small muted" style="margin:0 0 8px">The standard I authored for every email draft.</p><ul><li>Warmth and ownership in the first line</li><li>Never ask for something the customer already sent</li><li>One clear next action, as numbered steps</li><li>Offer a done-for-you path on repeat contacts</li><li>No em dashes, approved closing</li></ul></div>
     </div>
 
     <div class="split rv">
@@ -726,7 +745,7 @@ footer p{max-width:90ch}
         </ol>
       </div>
       <div class="panel anno-off" id="mailGood">
-        <div class="panel-h"><span class="tag cy">Structured draft</span><h3>Playbook plus case context</h3></div>
+        <div class="panel-h"><span class="tag cy">Structured draft</span><h3>Playbook, guidelines and case context</h3></div>
         <div class="mail">
           <div class="hdr"><span>To: Daniel Okafor</span><span>Re: Number STILL not transferred</span></div>
           <p>Hi Daniel,</p>
@@ -753,25 +772,6 @@ footer p{max-width:90ch}
     </div>
     <div class="ctrl rv" style="margin-top:14px">
       <button class="btn" id="mailAnno" aria-pressed="false">Show annotations</button>
-    </div>
-  </div>
-</section>
-
-<!-- VOICE -->
-<section id="voice">
-  <div class="wrap">
-    <div class="sec-head rv">
-      <div class="sec-label"><b>05 · Voice</b>The communication layer</div>
-      <div>
-        <h2>An accurate answer that reads cold <em>is still a bad answer.</em></h2>
-        <p class="lede">Facts were half the job. Every draft also passed through a communication layer: rules for how a reply sounds, how long it runs and what it never asks. That layer had three parts, and I worked on all three.</p>
-        <p class="small muted" style="margin-top:10px"><span class="ev c">Principles only</span> In my own words. No guideline text or prompt text appears here.</p>
-      </div>
-    </div>
-    <div class="own rv" style="margin-top:0">
-      <div class="card me"><h4>Email writing guidelines</h4><p class="small muted" style="margin:0 0 10px">US Mobile's standard for every email draft. I drafted two revisions.</p><ul><li>Warmth and ownership in the first line</li><li>The real steps in the reply, never only a link</li><li>One complete reply, with numbered steps</li><li>Never ask for what the customer already sent</li></ul></div>
-      <div class="card me"><h4>Chat conventions</h4><p class="small muted" style="margin:0 0 10px">Written into every chat playbook, because chat is a paced conversation, not a document.</p><ul><li>Two or three sentences a message, longer answers split in two</li><li>Never more than two questions at once</li><li>Every "we can't" comes with what we can do instead</li><li>If the customer says "one sec", acknowledge once and wait</li></ul></div>
-      <div class="card me"><h4>Smart Reply's system prompt</h4><p class="small muted" style="margin:0 0 10px">The prompt set how the in-house assistant sounded on every draft. I reworked and maintained it.</p><ul><li>Three live complaints: account details crammed into greetings, replies too long, a cold tone</li><li>Each traced to specific lines in the prompt</li><li>Addressed with six edits</li></ul></div>
     </div>
   </div>
 </section>
@@ -845,7 +845,7 @@ footer p{max-width:90ch}
         <h4>What I did on Smart Reply</h4>
         <ul class="rules">
           <li>Adapted the playbooks so both systems read them correctly, including gate wording ("only when confirmed") and semantic fact names.</li>
-          <li>Reworked and maintained the production system prompt. Traced three live complaints (account details crammed into greetings, length, coldness) to specific prompt lines and addressed them with six edits.</li>
+          <li>Played a major part in the production system prompt, including a key update I made on my own. Traced three live complaints (account details crammed into greetings, length, coldness) to specific prompt lines and addressed them with six edits.</li>
           <li>Worked with engineering on the caching plan, for consistency and cost.</li>
           <li>Ran the testing and the feedback loops: question sheets per playbook, findings fed back to engineering, and candidate models compared side by side.</li>
           <li>Sat in the daily stand-ups with the engineering team, and worked with product and engineering on model choice, testing, regression and rollout.</li>
@@ -997,7 +997,7 @@ footer p{max-width:90ch}
     </div>
     <div class="lead-grid rv">
       <div class="card"><h4>Expertise</h4><p>Frontline chat and email, quality reviews, then product experience. I knew where answers broke because I'd written them.</p></div>
-      <div class="card"><h4>Framework</h4><p>Co-designed a 10-day onboarding plan for new hires. Drafted two revisions of the email writing guidelines.</p></div>
+      <div class="card"><h4>Framework</h4><p>Co-designed a 10-day onboarding plan for new hires. Authored the communication guidelines for email and chat.</p></div>
       <div class="card"><h4>Training</h4><p>Mentored five new-hire cohorts through the 10-day plan. Ran release training as one of the shift leads.</p></div>
       <div class="card"><h4>Quality</h4><p>A changelog, a decisions log and a register of confirmed facts, so every change traced back to a source and a ruling.</p></div>
       <div class="card"><h4>Handover</h4><p>Packaged the method as reusable skills, test sets and changelogs, wrote a full handover manual, and handed the work to three team leads.</p></div>
