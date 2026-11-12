@@ -507,7 +507,7 @@ footer p{max-width:90ch}
           <button class="chip" data-trace="promo" aria-pressed="false">Promo code rejected</button>
           <button class="chip" data-trace="watch" aria-pressed="false">Galaxy Watch plan</button>
           <button class="chip" data-trace="forward" aria-pressed="false">Forward texts to email</button>
-          <button class="chip amber" data-trace="port" aria-pressed="false">Email: transfer rejected twice</button>
+          <button class="chip" data-trace="port" aria-pressed="false">Email: transfer rejected twice</button>
         </div>
         <div class="arch-scroll">
           <svg class="arch-svg" id="arch" viewBox="0 0 1200 720" role="img" aria-labelledby="archTitle archDesc">
@@ -1144,7 +1144,7 @@ var EMAILS=[
 var BIG={
  chatIn:{x:70,y:300,r:9,label:"Chat",t:"Chat",d:"Live conversations. 35 playbooks, about 178,000 AI-assisted chats a month."},
  emailIn:{x:70,y:690,r:9,label:"Email",t:"Email",d:"The specialist email team. 9 playbooks with email conventions: numbered steps, approved closings, full steps instead of bare links."},
- router:{x:240,y:300,r:11,label:"Routing contract",t:"Routing contract",d:"Maps every customer intent to exactly one owning playbook, with rules that separate look-alike intents."},
+ router:{x:175,y:300,r:11,label:"Routing contract",t:"Routing contract",d:"Maps every customer intent to exactly one owning playbook, with rules that separate look-alike intents."},
  composer:{x:960,y:400,r:12,label:"Draft composer",t:"Draft composer",d:"Combines the owning playbook with the shared layers into a suggested reply."},
  facts:{x:960,y:120,r:7,label:"Facts register",t:"Canonical facts register",d:"One confirmed source for prices, rules and dates, so a fact changes in one place."},
  guide:{x:960,y:215,r:7,label:"Communication guidelines",t:"Communication guidelines",d:"Voice, banned words, formatting and approved closing lines."},
@@ -1192,7 +1192,7 @@ var nodes={}; var procList=[]; var edges=[]; var detail=false;
 })();
 
 function curve(a,b){var mx=(a.x+b.x)/2;return "M"+a.x+","+a.y+" C"+mx+","+a.y+" "+mx+","+b.y+" "+b.x+","+b.y;}
-function addEdge(a,b,cls){var p=el("path",{d:curve(nodes[a],nodes[b]),fill:"none",stroke:cls==="em"?"#f3b65c":"#62e3ff","stroke-opacity":cls==="soft"?0.1:0.16,"stroke-width":cls==="soft"?0.8:1},gE);edges.push({a:a,b:b,p:p});return p;}
+function addEdge(a,b,cls){var p=el("path",{d:curve(nodes[a],nodes[b]),fill:"none",stroke:"#62e3ff","stroke-opacity":cls==="soft"?0.1:0.16,"stroke-width":cls==="soft"?0.8:1},gE);edges.push({a:a,b:b,p:p});return p;}
 (function drawEdges(){
   addEdge("chatIn","router");
   CATS.forEach(function(c){addEdge("router","hub"+c.id);c.p.forEach(function(p,i){addEdge("hub"+c.id,c.id+i);addEdge(c.id+i,"composer","soft");});});
@@ -1217,7 +1217,7 @@ function drawNodes(){
   Object.keys(nodes).forEach(function(k){
     var n=nodes[k];
     var g=el("g",{class:"node","data-id":k,tabindex:"0",role:"button","aria-label":n.t+". "+n.d},gN);
-    var col=n.amber||n.email?"#f3b65c":(n.kind==="hub"?"#7b93ff":"#62e3ff");
+    var col=n.amber?"#f3b65c":(n.kind==="hub"?"#7b93ff":"#62e3ff");
     el("circle",{class:"halo",cx:n.x,cy:n.y,r:n.r+5,fill:"transparent",stroke:"transparent"},g);
     var c=el("circle",{class:"core",cx:n.x,cy:n.y,r:n.r,fill:"#0f1216",stroke:col,"stroke-width":n.kind==="big"?1.6:1.2},g);
     n.core=c;n.col=col;
@@ -1278,7 +1278,7 @@ function ambient(){
   if(RM||activeTrace)return;
   var n=procList[Math.floor(Math.random()*procList.length)];
   var ids=n.email?["emailIn","hubEM",n.id,"composer"]:["chatIn","router","hub"+n.cat,n.id,"composer"];
-  pulseAlong(chainD(ids),{dur:2600,r:2.4,op:.7,amber:!!n.email});
+  pulseAlong(chainD(ids),{dur:2600,r:2.4,op:.7,amber:false});
 }
 if(!RM){ambientTimer=setInterval(ambient,700);}
 
@@ -1291,7 +1291,7 @@ function lightNode(k,amber){var n=nodes[k];n.lit=true;n.core.setAttribute("fill"
 function runTrace(key){
   var tr=TRACES[key];activeTrace=key;clearTrace();
   $$(".arch-bar .chip").forEach(function(b){b.setAttribute("aria-pressed",String(b.dataset.trace===key));});
-  var amber=!!tr.email; var col=amber?"#f3b65c":"#62e3ff";
+  var amber=false; var col="#62e3ff";
   var procNode=nodes[tr.proc];
   var main=tr.email?["emailIn","hubEM",tr.proc,"composer","agent","cust"]:["chatIn","router","hub"+procNode.cat,tr.proc,"composer","agent","cust"];
   var dMain=chainD(main);
