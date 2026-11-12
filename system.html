@@ -1,0 +1,1573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Hamdani · AI Operations</title>
+<meta name="description" content="How an AI-drafted customer support system worked: playbook architecture, AI reliability and handover. By Syed Mohammad Raza Hamdani.">
+<style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<style>
+/* Layout: one long editorial scroll; each case study is a "view" of the same system, joined by thin laser threads. Dark graphite by design (single theme). */
+:root{
+  color-scheme: dark;
+  --bg:#0a0c0f;
+  --bg-2:#0f1216;
+  --panel:#141920;
+  --panel-2:#1a2029;
+  --line:#242c36;
+  --line-2:#313b47;
+  --fg:#f3eee5;
+  --fg-2:#bdb7ac;
+  --fg-3:#858a92;
+  --cyan:#62e3ff;
+  --cyan-dim:rgba(98,227,255,.16);
+  --blue:#7b93ff;
+  --blue-dim:rgba(123,147,255,.16);
+  --amber:#f3b65c;
+  --amber-dim:rgba(243,182,92,.16);
+  --ok:#86dba7;
+  --bad:#ff8f7d;
+  --bad-dim:rgba(255,143,125,.14);
+  --f-display:"Newsreader", "Iowan Old Style", Georgia, serif;
+  --f-body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r:10px;
+  --wrap:1180px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--bg)}
+a{color:var(--cyan);text-decoration-color:rgba(98,227,255,.4);text-underline-offset:3px}
+a:hover{text-decoration-color:var(--cyan)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:4px}
+button{font:inherit;color:inherit;cursor:pointer}
+.skip{position:absolute;left:-999px;top:8px;background:var(--fg);color:var(--bg);padding:8px 12px;border-radius:6px;z-index:100}
+.skip:focus{left:16px}
+
+.wrap{max-width:var(--wrap);margin:0 auto;padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px))}
+section{padding-block:96px 24px;position:relative}
+.sec-head{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:24px 48px;margin-bottom:40px;align-items:start}
+.sec-label{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg-3);padding-top:14px;border-top:1px solid var(--line)}
+.sec-label b{display:block;color:var(--cyan);font-weight:500;margin-bottom:4px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;text-wrap:balance;margin:0}
+h2{font-size:clamp(30px,4vw,46px);line-height:1.08;letter-spacing:-.01em}
+h2 em,h1 em{font-style:italic;color:var(--cyan)}
+h3{font-size:24px;line-height:1.2}
+.lede{color:var(--fg-2);font-size:18px;max-width:64ch;margin:16px 0 0}
+p{margin:0 0 14px;max-width:68ch}
+.muted{color:var(--fg-2)}
+.small{font-size:14px}
+.mono{font-family:var(--f-mono)}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* evidence chips */
+.ev{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid var(--line-2);color:var(--fg-2);white-space:nowrap;vertical-align:middle}
+.ev::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.ev.m{color:var(--cyan);border-color:rgba(98,227,255,.35)}
+.ev.i{color:var(--amber);border-color:rgba(243,182,92,.35)}
+.ev.mod{color:var(--blue);border-color:rgba(123,147,255,.4)}
+.ev.c{color:var(--fg-2)}
+.ev-legend{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13px;color:var(--fg-3)}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;background:rgba(10,12,15,.82);backdrop-filter:saturate(140%) blur(10px);-webkit-backdrop-filter:saturate(140%) blur(10px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:20px;height:56px}
+.brand{font-family:var(--f-display);font-size:20px;color:var(--fg);text-decoration:none;white-space:nowrap}
+.brand span{color:var(--fg-3);font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;margin-left:8px;text-transform:uppercase}
+.nav{display:flex;gap:4px;margin-left:auto;overflow-x:auto;scrollbar-width:none;min-width:0}
+.nav::-webkit-scrollbar{display:none}
+.nav a{font-size:13px;color:var(--fg-2);text-decoration:none;padding:6px 10px;border-radius:6px;white-space:nowrap}
+.nav a:hover,.nav a.on{color:var(--fg);background:var(--panel)}
+
+/* hero */
+.hero{padding-block:72px 32px}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:56px;align-items:end}
+.kicker{font-family:var(--f-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-3);margin-bottom:22px}
+.kicker i{font-style:normal;color:var(--cyan)}
+.hero h1{font-size:clamp(38px,5.6vw,72px);line-height:1.02;letter-spacing:-.02em}
+.hero .lede{font-size:19px}
+.byline{margin-top:26px;display:flex;flex-wrap:wrap;gap:10px 22px;font-size:14px;color:var(--fg-3)}
+.byline b{color:var(--fg);font-weight:500}
+.figs{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.fig{padding:18px 18px 16px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
+.fig .n{font-family:var(--f-display);font-size:clamp(34px,4vw,48px);line-height:1;color:var(--fg);font-variant-numeric:tabular-nums}
+.fig .n small{font-size:.45em;color:var(--fg-3);margin-left:4px}
+.fig .t{font-size:13px;color:var(--fg-2);margin-top:8px;line-height:1.45}
+.fig .s{font-family:var(--f-mono);font-size:10.5px;color:var(--fg-3);margin-top:8px;letter-spacing:.04em}
+.thesis{margin-top:56px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:0;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.thesis div{padding:14px 12px;font-size:12.5px;color:var(--fg-2);border-right:1px solid var(--line);position:relative;line-height:1.35}
+.thesis div:last-child{border-right:0}
+.thesis div b{display:block;font-family:var(--f-mono);font-size:10.5px;color:var(--cyan);font-weight:500;letter-spacing:.08em;margin-bottom:6px}
+.thesis div::after{content:"";position:absolute;right:-5px;top:50%;width:9px;height:9px;border-top:1px solid var(--line-2);border-right:1px solid var(--line-2);transform:translateY(-50%) rotate(45deg);background:var(--bg);z-index:1}
+.thesis div:last-child::after{display:none}
+
+/* architecture */
+.arch{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.arch-stage{position:relative;background:radial-gradient(1200px 500px at 30% 50%, rgba(98,227,255,.05), transparent 60%), var(--bg-2);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;min-width:0}
+.arch-scroll{overflow-x:auto}
+.arch-svg{display:block;width:100%;min-width:760px;height:auto}
+.arch-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+.arch-bar .lbl{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);margin-right:4px}
+.chip{border:1px solid var(--line-2);background:transparent;color:var(--fg-2);padding:6px 11px;border-radius:999px;font-size:13px;line-height:1.2}
+.chip:hover{color:var(--fg);border-color:var(--fg-3)}
+.chip[aria-pressed="true"]{color:var(--bg);background:var(--cyan);border-color:var(--cyan)}
+.chip.amber[aria-pressed="true"]{background:var(--amber);border-color:var(--amber)}
+.scroll-hint{display:none}
+@media (max-width:860px){.scroll-hint{display:inline}}
+.arch-foot{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--fg-3)}
+.side{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.card h4{margin:0 0 8px;font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-3);font-weight:500}
+.card p{font-size:14px;color:var(--fg-2);margin:0 0 10px}
+.card p:last-child{margin-bottom:0}
+.rule,.card .rule{font-family:var(--f-display);font-size:20px;line-height:1.3;color:var(--fg)}
+.rules{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px}
+.rules li{font-size:13.5px;color:var(--fg-2);padding-left:18px;position:relative;line-height:1.45}
+.rules li::before{content:"";position:absolute;left:0;top:8px;width:8px;height:1px;background:var(--cyan)}
+.node-label{font-family:var(--f-body);font-size:12px;fill:var(--fg-2);pointer-events:none}
+.node-label.hub{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;fill:var(--fg-3)}
+.node{cursor:pointer}
+.node:focus{outline:none}
+.node:focus-visible circle.halo{stroke:var(--cyan);stroke-width:2}
+#tip{position:absolute;pointer-events:none;max-width:260px;background:rgba(20,25,32,.96);border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--fg-2);line-height:1.45;opacity:0;transform:translateY(4px);transition:opacity .12s, transform .12s;z-index:5}
+#tip b{color:var(--fg);display:block;font-weight:500;margin-bottom:2px}
+#tip.on{opacity:1;transform:none}
+
+/* split views */
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;min-width:0;display:flex;flex-direction:column}
+.panel-h{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.panel-h h3{font-family:var(--f-body);font-size:14px;font-weight:600}
+.panel-h .clock{margin-left:auto;font-family:var(--f-mono);font-size:13px;color:var(--fg-2);font-variant-numeric:tabular-nums}
+.panel-h .clock b{color:var(--fg);font-weight:500}
+.tag{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:4px;background:var(--panel-2);color:var(--fg-3)}
+.tag.cy{color:var(--cyan);background:var(--cyan-dim)}
+.tag.am{color:var(--amber);background:var(--amber-dim)}
+.tag.bl{color:var(--blue);background:var(--blue-dim)}
+
+/* mock ticket UI */
+.ui{display:flex;flex-direction:column;flex:1;min-height:0;position:relative}
+.tabs{display:flex;gap:2px;padding:8px 10px 0;background:var(--bg-2);border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs span{font-size:12px;padding:7px 12px;border-radius:6px 6px 0 0;color:var(--fg-3);white-space:nowrap;border:1px solid transparent;border-bottom:0}
+.tabs span.on{background:var(--panel);color:var(--fg);border-color:var(--line)}
+.pane{display:none;padding:14px;flex:1;min-height:420px;position:relative}
+.pane.on{display:block}
+.msg{max-width:88%;padding:10px 12px;border-radius:10px;font-size:13.5px;line-height:1.5;margin-bottom:10px;position:relative}
+.msg .who{display:block;margin:0 0 4px;font-size:11px;font-family:var(--f-mono);color:var(--fg-3);letter-spacing:.04em}
+.msg.cust{background:var(--panel-2);border:1px solid var(--line)}
+.msg.agent{background:rgba(123,147,255,.12);border:1px solid rgba(123,147,255,.28);margin-left:auto}
+.msg.hl{box-shadow:0 0 0 1px var(--amber)}
+.composer{margin-top:12px;border:1px solid var(--line-2);border-radius:10px;background:var(--bg-2);min-height:120px;padding:10px 12px;font-size:13.5px;line-height:1.55;position:relative}
+.composer .ph{color:var(--fg-3)}
+.composer .cap{position:absolute;top:-9px;left:10px;background:var(--panel);padding:0 6px;font-family:var(--f-mono);font-size:10.5px;color:var(--fg-3);letter-spacing:.05em}
+.composer.ai{border-color:rgba(98,227,255,.45);box-shadow:0 0 0 4px rgba(98,227,255,.06)}
+.composer.ai .cap{color:var(--cyan)}
+.composer ol{margin:6px 0 8px;padding-left:20px}
+.composer p{margin:0 0 8px}
+.caret{display:inline-block;width:7px;height:14px;background:var(--cyan);vertical-align:-2px;margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.lnk{color:var(--cyan);text-decoration:underline}
+.lnk.sel{background:rgba(98,227,255,.25)}
+.doc{font-size:13px;line-height:1.55;color:var(--fg-2)}
+.doc .url{font-family:var(--f-mono);font-size:11px;color:var(--fg-3);background:var(--bg-2);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin-bottom:12px;display:flex;gap:8px;align-items:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.doc h5{font-family:var(--f-display);font-size:19px;font-weight:400;color:var(--fg);margin:0 0 8px}
+.doc .ln{padding:3px 6px;border-radius:4px;transition:background .2s}
+.doc .ln.hl{background:var(--amber-dim);color:var(--fg)}
+.doc .search{border:1px solid var(--line-2);border-radius:6px;padding:7px 10px;font-family:var(--f-mono);font-size:12px;color:var(--fg);margin-bottom:12px;min-height:33px}
+.cursor{position:absolute;width:14px;height:14px;pointer-events:none;z-index:4;transition:left .5s cubic-bezier(.3,.7,.2,1), top .5s cubic-bezier(.3,.7,.2,1);left:60%;top:70%}
+.cursor svg{display:block}
+.stepcap{border-top:1px solid var(--line);padding:10px 14px;font-size:13px;color:var(--fg-2);display:flex;gap:10px;align-items:center;min-height:46px}
+.stepcap .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);flex:none}
+.stepcap.ai .dot{background:var(--cyan)}
+.stepcap.done .dot{background:var(--ok)}
+.src{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:11px;color:var(--cyan);border:1px solid rgba(98,227,255,.35);border-radius:999px;padding:3px 9px;margin:4px 6px 0 0;background:transparent}
+.src.hl{background:var(--cyan-dim)}
+.ctrl{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 16px}
+.btn{border:1px solid var(--line-2);background:var(--panel);color:var(--fg);border-radius:8px;padding:9px 14px;font-size:14px;display:inline-flex;gap:8px;align-items:center}
+.btn:hover{border-color:var(--fg-3)}
+.btn.pri{background:var(--cyan);color:#061015;border-color:var(--cyan);font-weight:600}
+.btn.pri:hover{filter:brightness(1.07)}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
+.seg button{background:transparent;border:0;padding:8px 12px;font-size:13px;color:var(--fg-2)}
+.seg button[aria-pressed="true"]{background:var(--panel-2);color:var(--fg)}
+.result{margin-top:16px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.result > div{background:var(--panel);padding:14px 16px}
+.result .n{font-family:var(--f-display);font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.result .t{font-size:12.5px;color:var(--fg-3);margin-top:4px}
+
+/* annotations */
+.mk{font-family:var(--f-mono);font-size:10px;line-height:1;display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--cyan);color:#061015;margin:0 3px;vertical-align:2px;font-weight:600}
+.mk.bad{background:var(--bad);}
+.anno-off .mk{display:none}
+.anno-on .ann{background:var(--cyan-dim);border-radius:3px;box-shadow:0 0 0 2px var(--cyan-dim)}
+.anno-on .ann.bad{background:var(--bad-dim);box-shadow:0 0 0 2px var(--bad-dim)}
+.notes{list-style:none;margin:0;padding:12px 14px;border-top:1px solid var(--line);display:grid;gap:8px;font-size:13px;color:var(--fg-2)}
+.notes li{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start;line-height:1.45}
+.anno-off .notes{display:none}
+
+/* email */
+.mail{padding:18px 20px;font-size:14.5px;line-height:1.65;color:var(--fg)}
+.mail .hdr{font-family:var(--f-mono);font-size:11.5px;color:var(--fg-3);border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px;display:grid;gap:2px}
+.mail p{margin:0 0 12px}
+.mail ol{margin:0 0 12px;padding-left:22px}
+.inputs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:20px}
+.inputs .card{position:relative}
+.inputs ul{margin:0;padding-left:16px;font-size:13px;color:var(--fg-2)}
+.inputs li{margin-bottom:4px}
+.cust-mail{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 20px;margin-bottom:20px;font-size:14.5px;line-height:1.6}
+
+/* procedure blocks (63%) */
+.blocks-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:center}
+.blocks{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px}
+.blk{aspect-ratio:1/1.25;border-radius:4px;border:1px solid var(--line-2);background:var(--panel);position:relative;transition:background .5s, border-color .5s, transform .5s}
+.blk.gated{background:var(--amber-dim);border-color:rgba(243,182,92,.55)}
+.blk.gated::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;border:1px solid var(--amber);border-radius:1px;transform:translate(-50%,-50%) rotate(45deg)}
+.blk.open{background:var(--cyan-dim);border-color:rgba(98,227,255,.5)}
+.bignum{font-family:var(--f-display);font-size:clamp(56px,8vw,96px);line-height:.9;color:var(--amber);font-variant-numeric:tabular-nums}
+.bignum.cy{color:var(--cyan)}
+
+/* smart reply */
+.sr{display:grid;grid-template-columns:52px minmax(0,1fr) 330px;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--bg-2);min-height:620px}
+.sr-nav{border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px 0;background:var(--bg)}
+.sr-nav i{width:22px;height:22px;border-radius:6px;border:1px solid var(--line-2);display:block}
+.sr-nav i.on{border-color:var(--cyan);background:var(--cyan-dim)}
+.sr-main{display:flex;flex-direction:column;min-width:0}
+.sr-tick{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;color:var(--fg-3)}
+.sr-tick b{color:var(--fg);font-weight:500}
+.sr-conv{padding:16px;flex:1}
+.sr-draft{margin:0 16px 16px;border:1px solid rgba(98,227,255,.45);border-radius:10px;background:var(--panel);overflow:hidden}
+.sr-draft-h{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line);font-size:12px;color:var(--fg-3);flex-wrap:wrap}
+.sr-draft-h b{color:var(--cyan);font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;font-weight:500}
+.sr-body{padding:12px 14px;font-size:13.5px;line-height:1.6;min-height:150px}
+.sr-body[contenteditable="true"]{outline:1px dashed var(--fg-3);outline-offset:-4px}
+.sr-body p{margin:0 0 8px}
+.sr-body ol{margin:4px 0 8px;padding-left:20px}
+.sent .s{cursor:default}
+.s{border-radius:3px;transition:background .2s;cursor:help}
+.s:hover,.s.hl{background:var(--cyan-dim)}
+.s sup{font-family:var(--f-mono);font-size:9.5px;color:var(--cyan);margin-left:2px}
+.sr-act{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);flex-wrap:wrap;align-items:center}
+.sr-act .btn{padding:7px 12px;font-size:13px}
+.sr-side{border-left:1px solid var(--line);background:var(--bg);padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.sr-side-h{display:flex;align-items:center;justify-content:space-between;font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;color:var(--fg-3);text-transform:uppercase}
+.cmod{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:10px 12px;font-size:12.5px;transition:border-color .25s, box-shadow .25s, opacity .25s}
+.cmod.idle{opacity:.45}
+.cmod.hl{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(98,227,255,.12)}
+.cmod h6{margin:0 0 6px;font-size:11px;font-family:var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--fg-3);font-weight:500;display:flex;align-items:center;gap:6px}
+.cmod h6 .n{color:var(--cyan)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;color:var(--fg-2)}
+.kv dt{color:var(--fg-3)}
+.kv dd{margin:0;color:var(--fg);text-align:right}
+.st{font-family:var(--f-mono);font-size:10.5px;padding:1px 6px;border-radius:4px;margin-left:auto}
+.st.ok{color:var(--ok);background:rgba(134,219,167,.12)}
+.st.wait{color:var(--amber);background:var(--amber-dim)}
+.st.na{color:var(--fg-3);background:var(--panel-2)}
+.calls{list-style:none;padding:0;margin:0;display:grid;gap:5px;font-family:var(--f-mono);font-size:11.5px;color:var(--fg-2)}
+.calls li{display:flex;gap:8px;align-items:center}
+
+/* ownership */
+.own{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:20px}
+.own .card h4{color:var(--fg)}
+.own ul{margin:0;padding-left:16px;font-size:13.5px;color:var(--fg-2)}
+.own li{margin-bottom:6px}
+.own .card.me{border-color:rgba(98,227,255,.4)}
+.own .card.me h4{color:var(--cyan)}
+
+/* calculator */
+.calc{display:grid;grid-template-columns:330px minmax(0,1fr);gap:20px}
+.ctrls{display:flex;flex-direction:column;gap:18px}
+.fld label{display:flex;justify-content:space-between;font-size:13.5px;color:var(--fg-2);margin-bottom:8px;gap:10px}
+.fld label output{font-family:var(--f-mono);color:var(--fg);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--cyan);height:24px}
+.formula{font-family:var(--f-mono);font-size:12.5px;color:var(--fg-2);background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:12px;line-height:1.6}
+.formula b{color:var(--fg);font-weight:500}
+.convs{display:grid;gap:14px}
+.conv-row{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.conv-row .hd{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.conv-row .hd h4{margin:0;font-size:14px;font-weight:600}
+.conv-row .hd .big{margin-left:auto;font-family:var(--f-display);font-size:38px;line-height:1;font-variant-numeric:tabular-nums}
+.conv-row .hd .big small{font-size:14px;color:var(--fg-3);font-family:var(--f-body);margin-left:4px}
+.ticks{display:flex;flex-wrap:wrap;gap:3px}
+.tk{width:10px;height:22px;border-radius:2px;background:var(--line-2);border:1px solid var(--line-2)}
+.tk.ag{background:rgba(123,147,255,.18);border-color:rgba(123,147,255,.35)}
+.tk.ag.sv{background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 8px rgba(98,227,255,.45)}
+.conv-row .sub{font-size:12.5px;color:var(--fg-3);margin-top:10px;font-family:var(--f-mono)}
+table.sc{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+table.sc th,table.sc td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right}
+table.sc th:first-child,table.sc td:first-child{text-align:left}
+table.sc th{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg-3);font-weight:500}
+table.sc tr.cur td{color:var(--cyan)}
+.tbl{overflow-x:auto}
+details{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);margin-top:14px}
+details summary{cursor:pointer;padding:12px 16px;font-size:14px;color:var(--fg);list-style:none;display:flex;gap:10px;align-items:center}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:"+";font-family:var(--f-mono);color:var(--cyan);width:12px}
+details[open] summary::before{content:"\2212"}
+details .in{padding:0 16px 16px;font-size:14px;color:var(--fg-2)}
+.arith{font-family:var(--f-mono);font-size:12.5px;line-height:1.8;color:var(--fg-2)}
+.arith b{color:var(--fg);font-weight:500}
+.chart{width:100%;height:auto;display:block}
+.stack{display:grid;gap:10px;margin-top:6px}
+.stack .row{display:grid;grid-template-columns:120px minmax(0,1fr) 56px;gap:10px;align-items:center;font-size:12.5px;color:var(--fg-2)}
+.bar{display:flex;height:22px;border-radius:4px;overflow:hidden;background:var(--bg-2)}
+.bar span{display:block;height:100%;border-right:1px solid var(--bg)}
+
+/* reliability */
+.cycle{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:0;position:relative;margin-bottom:18px}
+.cycle::before{content:"";position:absolute;left:6%;right:6%;top:22px;height:1px;background:linear-gradient(90deg,var(--cyan),var(--blue),var(--amber));opacity:.6}
+.cy-step{background:transparent;border:0;padding:0 4px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--fg-2);font-size:12.5px;position:relative}
+.cy-step i{width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2);background:var(--bg-2);display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-style:normal;font-size:12px;color:var(--fg-3);transition:all .2s}
+.cy-step[aria-pressed="true"] i{border-color:var(--cyan);color:var(--bg);background:var(--cyan);box-shadow:0 0 18px rgba(98,227,255,.5)}
+.cy-step[aria-pressed="true"]{color:var(--fg)}
+.cy-detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+.patch{font-family:var(--f-mono);font-size:12px;line-height:1.6;background:var(--bg-2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.patch .ph{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);color:var(--fg-3);font-size:11px;flex-wrap:wrap}
+.patch pre{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-word;color:var(--fg-2)}
+.patch .del{color:var(--bad)}
+.patch .add{color:var(--ok)}
+.patch .chk{padding:8px 12px;border-top:1px solid var(--line);display:grid;gap:3px}
+.patch .chk span{color:var(--ok)}
+.patterns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.pat{border:1px solid var(--line-2);border-radius:8px;padding:8px 10px;font-size:12.5px;color:var(--fg-2);background:var(--panel);max-width:100%}
+.pat b{font-family:var(--f-mono);color:var(--amber);font-weight:500;margin-right:6px}
+.evi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:22px}
+.evi .card .n{font-family:var(--f-display);font-size:40px;line-height:1;margin-bottom:8px;font-variant-numeric:tabular-nums}
+.evi .card .n.am{color:var(--amber)}
+.evi .card .n.cy{color:var(--cyan)}
+
+/* leadership */
+.lead-svg{width:100%;height:auto;display:block}
+.lead-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin-top:10px}
+.lead-grid .card{padding:14px}
+.lead-grid .card h4{color:var(--cyan)}
+.lead-grid .card p{font-size:13px}
+.shift{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px;margin-top:22px}
+
+/* more work */
+.more{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.more .card h3{font-size:20px;margin-bottom:8px}
+.more .card .ev{margin-bottom:10px}
+
+/* contact */
+.contact{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:40px;align-items:end;border-top:1px solid var(--line);padding-top:48px}
+.contact h2{font-size:clamp(34px,4.6vw,56px)}
+.cline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 0;border-bottom:1px solid var(--line);font-size:15px}
+.cline .k{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);width:90px}
+.cline .v{user-select:all;color:var(--fg)}
+.copy{margin-left:auto;font-size:12px;padding:5px 10px}
+footer{padding-block:48px 64px;color:var(--fg-3);font-size:13px}
+footer p{max-width:90ch}
+
+/* reveal */
+.rv{transition:opacity .7s ease, transform .7s ease}
+.rv.pre{opacity:.001;transform:translateY(14px)}
+@media (prefers-reduced-motion: reduce){.rv,.rv.pre{opacity:1!important;transform:none!important;transition:none}}
+
+/* responsive */
+@media (max-width: 1060px){
+  .arch{grid-template-columns:1fr}
+  .sr{grid-template-columns:minmax(0,1fr) 300px}
+  .sr-nav{display:none}
+  .evi{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lead-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width: 860px){
+  section{padding-block:72px 16px}
+  .sec-head{grid-template-columns:1fr;gap:14px}
+  .hero-grid,.split,.calc,.blocks-wrap,.cy-detail,.shift,.contact{grid-template-columns:1fr}
+  .thesis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .thesis div{border-bottom:1px solid var(--line)}
+  .thesis div::after{display:none}
+  .inputs,.own,.more{grid-template-columns:1fr}
+  .sr{grid-template-columns:1fr}
+  .sr-side{border-left:0;border-top:1px solid var(--line)}
+  .cycle{grid-template-columns:repeat(4,minmax(0,1fr));row-gap:18px}
+  .cycle::before{display:none}
+  .result{grid-template-columns:1fr}
+  .brand span{display:none}
+}
+@media (max-width: 560px){
+  .side,.evi,.lead-grid{grid-template-columns:1fr}
+  .figs{grid-template-columns:1fr 1fr}
+  .stack .row{grid-template-columns:84px minmax(0,1fr) 46px}
+  .tk{width:8px;height:18px}
+}
+:root{--art:url("data:image/webp;base64,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")}
+
+/* v3: art + contrast */
+.hero{position:relative;isolation:isolate;overflow:hidden}
+.hero-art,.contact-art{position:absolute;inset:0;z-index:-1;pointer-events:none;background-image:var(--art);background-repeat:no-repeat}
+.hero-art{background-size:cover;background-position:62% 30%;opacity:.62;-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 46%,transparent 92%);mask-image:linear-gradient(180deg,#000 0%,#000 46%,transparent 92%)}
+.hero-art::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,12,15,.92) 0%,rgba(10,12,15,.55) 46%,rgba(10,12,15,.15) 100%)}
+#contact.has-art{position:relative;isolation:isolate;overflow:hidden}
+.contact-art{background-size:cover;background-position:30% 50%;opacity:.28;transform:scaleX(-1);-webkit-mask-image:radial-gradient(ellipse at 70% 50%,#000 20%,transparent 75%);mask-image:radial-gradient(ellipse at 70% 50%,#000 20%,transparent 75%)}
+.contrast{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:14px;align-items:stretch;margin-top:22px}
+.cx{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:18px 20px}
+.cx.ai{border-color:rgba(98,227,255,.35);box-shadow:0 0 0 1px rgba(98,227,255,.08),0 18px 40px -24px rgba(98,227,255,.35)}
+.cx p{font-family:Newsreader,Georgia,serif;font-size:24px;line-height:1.25;margin:12px 0 8px;color:var(--fg)}
+.cx small{color:var(--fg-3);font-size:13px}
+.cx b.off{color:var(--amber)} .cx b.on{color:var(--cyan)}
+.cx-mid{display:flex;align-items:center}
+.cx-mid span{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--fg-3);border:1px dashed var(--line-2);border-radius:999px;padding:6px 10px;white-space:nowrap}
+.pull{margin:26px 0 4px;padding:0 0 0 18px;border-left:2px solid var(--cyan);font-family:Newsreader,Georgia,serif;font-style:italic;font-size:clamp(24px,3vw,34px);line-height:1.2;color:var(--fg)}
+.kv dd.hot{color:var(--cyan)}
+@media (max-width:760px){.contrast{grid-template-columns:1fr}.cx-mid{justify-content:center}.hero-art{opacity:.4;background-position:70% 0}}
+
+/* v4: hosted copy. Capability words in the hero grid, shorter headline. */
+.hero h1{font-size:clamp(30px,4.2vw,54px);line-height:1.08}
+.fig .n.w{font-size:clamp(24px,2.6vw,32px);line-height:1.1;color:var(--cyan)}
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top">Hamdani<span>AI operations</span></a>
+    <nav class="nav" aria-label="Sections">
+      <a href="./">Summary</a>
+      <a href="#system">System</a>
+      <a href="#playbooks">Playbooks</a>
+      <a href="#chat">Chat</a>
+      <a href="#email">Email</a>
+      <a href="#smartreply">Smart Reply</a>
+      <a href="#time">Time</a>
+      <a href="#reliability">Reliability</a>
+      <a href="#leadership">Leadership</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="hero-art" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <div class="kicker"><i>Syed Mohammad Raza Hamdani</i> · AI operations · playbook architecture · support automation</div>
+        <h1>I owned what a US carrier's AI told its support team to <em>say</em> to customers, and the process for <em>changing it safely</em>.</h1>
+        <p class="lede">At US Mobile, a US carrier with about a million customers, I authored and owned the playbooks behind AI-drafted support replies across chat and email. I then adapted them for Smart Reply, the in-house assistant that also reads live account data. This page shows how that system worked, how I kept it accurate, and how I handed it over.</p>
+        <p class="lede">What it changed: customers got quicker, warmer and more accurate answers across a large product range, agents spent less time per conversation, and the knowledge base and Help Center became easier to follow in real time. I do not publish CSAT or resolution-time figures here, and I am glad to talk them through.</p>
+        <div class="byline">
+          <span><b>Product Experience Analyst, then Lead</b>, US Mobile · Apr 2025 to Sep 2026</span>
+          <span><b>MBA</b>, Bahçeşehir University · Istanbul</span>
+        </div>
+      </div>
+      <div>
+        <div class="figs" role="list">
+          <div class="fig" role="listitem"><div class="n w">Govern</div><div class="t">I authored and owned the guidance the AI drafted from: 44 playbooks, 35 for chat and 9 for email.</div><div class="s"><span class="ev m">Measured</span></div></div>
+          <div class="fig" role="listitem"><div class="n w">Check</div><div class="t">Reviewing changes before release was routine. One example: 200 of 233 proposed changes shipped after I checked every one.</div><div class="s"><span class="ev m">Measured</span></div></div>
+          <div class="fig" role="listitem"><div class="n w">Measure</div><div class="t">I measure how a tool is used before I change it. 63% of agent actions sat behind buttons most agents never pressed.</div><div class="s"><span class="ev m">Measured</span></div></div>
+          <div class="fig" role="listitem"><div class="n w">At scale</div><div class="t">A 24/7 support team of more than 300 agents, and about 178,000 AI-assisted chats a month.</div><div class="s"><span class="ev m">Measured</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="thesis" aria-label="How I work, in order">
+      <div><b>01 Problem</b>Find where the AI goes wrong, in real conversations</div>
+      <div><b>02 Knowledge</b>Turn product rules into structured playbooks</div>
+      <div><b>03 Logic</b>Decide which playbook owns each customer intent</div>
+      <div><b>04 Drafting</b>The AI drafts, the agent reviews and sends</div>
+      <div><b>05 Testing</b>Trace each wrong answer to its structural cause</div>
+      <div><b>06 Release</b>Ship changes that are verified and reversible</div>
+      <div><b>07 Upkeep</b>Train people, document the method, hand it over</div>
+    </div>
+    <div class="ev-legend" style="margin-top:18px">
+      <span>How to read this page:</span>
+      <span class="ev m">Measured</span><span>real figure from the work</span>
+      <span class="ev c">Conceptual model</span><span>simplified for public view</span>
+      <span class="ev i">Illustrative demo</span><span>fictional carrier and customers</span>
+      <span class="ev mod">Modeled</span><span>maths from stated assumptions</span>
+    </div>
+  </div>
+</section>
+
+<!-- SYSTEM -->
+<section id="system">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="sec-label"><b>01 · The system</b>Playbook architecture</div>
+      <div>
+        <h2>One routing contract: <em>every customer intent has exactly one owner.</em></h2>
+        <p class="lede">Auto Assist picks a playbook by reading what the customer types. When two playbooks both claim a question, it blends them and invents. So I organised the chat library into eleven intent categories and gave every intent a single owning playbook. Pick a case below and follow the thread.</p>
+      </div>
+    </div>
+
+    <div class="arch rv">
+      <div class="arch-stage">
+        <div class="arch-bar" role="group" aria-label="Trace a customer case">
+          <span class="lbl">Trace a case</span>
+          <button class="chip" data-trace="esim" aria-pressed="false">No data after eSIM setup</button>
+          <button class="chip" data-trace="abroad" aria-pressed="false">"I'm in Italy and nothing works"</button>
+          <button class="chip" data-trace="promo" aria-pressed="false">Promo code rejected</button>
+          <button class="chip" data-trace="watch" aria-pressed="false">Galaxy Watch plan</button>
+          <button class="chip" data-trace="forward" aria-pressed="false">Forward texts to email</button>
+          <button class="chip amber" data-trace="port" aria-pressed="false">Email: transfer rejected twice</button>
+        </div>
+        <div class="arch-scroll">
+          <svg class="arch-svg" id="arch" viewBox="0 0 1200 720" role="img" aria-labelledby="archTitle archDesc">
+            <title id="archTitle">Playbook architecture, sanitized conceptual model</title>
+            <desc id="archDesc">Customer messages enter through chat or email. Chat routes through a routing contract into eleven intent categories and 35 chat playbooks. Email routes to nine email playbooks. All playbooks draw on shared layers: a canonical facts register, communication guidelines, the public Help Center, and for Smart Reply a live account context. Every draft goes to an agent for review.</desc>
+            <defs>
+              <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              <radialGradient id="pulseG"><stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="#62e3ff"/><stop offset="1" stop-color="#62e3ff" stop-opacity="0"/></radialGradient>
+              <radialGradient id="pulseA"><stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="#f3b65c"/><stop offset="1" stop-color="#f3b65c" stop-opacity="0"/></radialGradient>
+            </defs>
+            <g id="gEdges"></g>
+            <g id="gActive"></g>
+            <g id="gNodes"></g>
+            <g id="gPulses"></g>
+          </svg>
+        </div>
+        <div id="tip" role="status" aria-live="polite"></div>
+        <div class="arch-foot">
+          <span><span class="ev c">Sanitized conceptual model</span> Topic names only. No internal text, IDs or volumes.<span class="scroll-hint"> Swipe the diagram sideways to see the whole system.</span></span>
+          <span class="seg" role="group" aria-label="Detail level">
+            <button id="viewOverview" aria-pressed="true">Overview</button>
+            <button id="viewDetail" aria-pressed="false">Show all labels</button>
+          </span>
+        </div>
+      </div>
+      <aside class="side">
+        <div class="card" id="traceCard">
+          <h4>Routing rule in play</h4>
+          <p class="rule" id="traceRule">Pick a case to see which rule decides the route.</p>
+          <p id="traceWhy">Hover or tab through any node for what it does.</p>
+        </div>
+        <div class="card">
+          <h4>Rules that keep routes clean</h4>
+          <ul class="rules">
+            <li>Where the customer is outranks everything. Abroad and offline always goes to roaming troubleshooting.</li>
+            <li>Buying is never troubleshooting, wherever the customer is standing.</li>
+            <li>"We don't offer that" and "not on your plan" are different answers with different owners.</li>
+            <li>Only one playbook may hold a generic entry like "my watch".</li>
+            <li>A product's price lives with the product. A code that discounts it lives with offers.</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- PROCEDURES / 63% -->
+<section id="playbooks">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="sec-label"><b>02 · Case A</b>Playbooks, not documents</div>
+      <div>
+        <h2>Having the knowledge isn't the same as the AI <em>being able to use it.</em></h2>
+        <p class="lede">A playbook is a set of instructions the AI follows when it drafts. It encodes the customer's situation, the diagnostic branches, the conditions that unlock each answer, the approved wording, the exceptions and the hand-offs. The hardest problems I addressed were structural, not wording.</p>
+      </div>
+    </div>
+    <div class="blocks-wrap rv">
+      <div>
+        <div class="ctrl">
+          <div class="seg" role="group" aria-label="Playbook format">
+            <button id="blkBefore" aria-pressed="true">Scenario format (before)</button>
+            <button id="blkAfter" aria-pressed="false">Zero-input format (after)</button>
+          </div>
+        </div>
+        <div class="blocks" id="blocks" aria-label="30 instruction blocks"></div>
+        <p class="small muted" style="margin-top:12px" id="blkCap">30 instruction blocks in a scenario-format playbook. 19 of them only appeared after an agent pressed a button.</p>
+      </div>
+      <div>
+        <div class="bignum" id="blkNum">63%</div>
+        <h3 style="margin:14px 0 10px" id="blkHead">of agent actions were gated behind buttons most agents never pressed.</h3>
+        <p class="muted">Playbooks were written as scenarios: the agent clicks "Completed" or "Not completed", and the right instructions unlock. In practice most agents never clicked. So for most conversations, the AI drafted from the wrong branch or produced nothing.</p>
+        <p class="muted">I counted it, then rebuilt the format so a useful draft appears with zero agent input. Conditions are written into the playbook as plain gates ("only when confirmed") that the AI can read from the conversation itself.</p>
+        <p class="rule" style="margin-top:18px">"A missing draft is worse than a wrong draft, because nobody sees it fail."</p>
+        <p class="small muted">The working principle for the library. Four playbooks were converted first, at management's direction, then the rest. The change in draft rate afterwards was not measured.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CHAT DEMO -->
+<section id="chat">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="sec-label"><b>03 · Chat</b>Manual vs playbook-driven</div>
+      <div>
+        <h2>Same customer, same question. <em>Watch where the time goes.</em></h2>
+        <p class="lede">A customer set up an eSIM and has calls but no data. On the left, a capable agent does it by hand. On the right, Auto Assist drafts from a well-built playbook and the agent reviews it. One sends an article. The other solves it in two taps.</p>
+        <p class="small muted" style="margin-top:10px"><span class="ev i">Illustrative demo</span> Fictional carrier and customer. Timings are stated assumptions for this one reply, not measurements. Steps follow Apple's published iPhone guidance.</p>
+      </div>
+    </div>
+
+    <div class="ctrl rv">
+      <button class="btn pri" id="demoPlay">Play side by side</button>
+      <span class="seg" role="group" aria-label="Speed">
+        <button data-speed="1" aria-pressed="true">1×</button>
+        <button data-speed="2" aria-pressed="false">2×</button>
+        <button data-speed="4" aria-pressed="false">4×</button>
+      </span>
+      <button class="btn" id="demoSkip">Show end state</button>
+    </div>
+
+    <div class="split rv">
+      <!-- MANUAL -->
+      <div class="panel" id="manual">
+        <div class="panel-h"><span class="tag am">Manual</span><h3>Agent works it by hand</h3><span class="clock">sim <b id="mClock">0</b>s</span></div>
+        <div class="ui">
+          <div class="tabs" role="presentation"><span data-tab="chat" class="on">Chat · Maya R.</span><span data-tab="kb">Internal KB</span><span data-tab="hc">Help Center</span></div>
+          <div class="pane on" data-pane="chat">
+            <div class="cursor" id="mCursor" aria-hidden="true"><svg width="14" height="18" viewBox="0 0 14 18"><path d="M1 1l11 10H7l3 6-2 1-3-6-4 4z" fill="#f3eee5" stroke="#0a0c0f" stroke-width="1"/></svg></div>
+            <div class="msg cust" id="mCust"><span class="who">Maya R. · 10:42</span>Hi! I set up my eSIM this morning. Calls and texts work fine but I have no data unless I'm on Wi-Fi. iPhone 15 Pro.</div>
+            <div id="mThread"></div>
+            <div class="composer" id="mComp"><span class="cap">Composer</span><span class="ph">Type a reply…</span></div>
+          </div>
+          <div class="pane" data-pane="kb">
+            <div class="doc">
+              <div class="url">kb.northline.internal / esim / no-data-after-activation</div>
+              <div class="search" id="kbSearch"></div>
+              <h5>eSIM: no data after activation</h5>
+              <div class="ln" data-l="1">Calls and texts working means the line is provisioned. Start on the device.</div>
+              <div class="ln" data-l="2">Dual SIM iPhones can keep the old line as the data line after a new eSIM is added.</div>
+              <div class="ln" data-l="3">Check Settings &gt; Cellular &gt; Cellular Data. The Northline line must be selected.</div>
+              <div class="ln" data-l="4">In the US, Data Roaming stays off (Cellular Data Options). Abroad, route to roaming troubleshooting.</div>
+              <div class="ln" data-l="5">Still no data: check data provisioning on the line, then escalate with the line number.</div>
+              <div class="ln" data-l="6">Never suggest deleting the eSIM as a first step. It may need a new QR code to restore.</div>
+            </div>
+          </div>
+          <div class="pane" data-pane="hc">
+            <div class="doc">
+              <div class="url">help.northline.example / iphone-cellular-data</div>
+              <div class="search" id="hcSearch"></div>
+              <h5>Choose which line uses cellular data on iPhone</h5>
+              <div class="ln" data-l="1">If your iPhone has more than one line, you can pick which one it uses for data.</div>
+              <div class="ln" data-l="2">1. Open Settings, then tap Cellular.</div>
+              <div class="ln" data-l="3">2. Tap Cellular Data.</div>
+              <div class="ln" data-l="4">3. Tap your Northline number.</div>
+              <div class="ln" data-l="5">Your other line keeps working for calls and texts.</div>
+            </div>
+          </div>
+        </div>
+        <div class="stepcap" id="mCap"><span class="dot"></span><span>Press Play to start.</span></div>
+      </div>
+
+      <!-- ASSISTED -->
+      <div class="panel anno-off" id="assisted">
+        <div class="panel-h"><span class="tag cy">Auto Assist</span><h3>Playbook-driven draft, agent reviews</h3><span class="clock">sim <b id="aClock">0</b>s</span></div>
+        <div class="ui">
+          <div class="tabs" role="presentation"><span class="on">Chat · Maya R.</span></div>
+          <div class="pane on">
+            <div class="msg cust" id="aCust"><span class="who">Maya R. · 10:42</span>Hi! I set up my eSIM this morning. Calls and texts work fine but I have no data unless I'm on Wi-Fi. iPhone 15 Pro.</div>
+            <div id="aThread"></div>
+            <div class="composer ai" id="aComp"><span class="cap">Auto Assist suggestion</span><span class="ph">Waiting for the customer's message…</span></div>
+            <div id="aSrc" hidden>
+              <span class="src">Playbook: Service troubleshooting · eSIM data</span><span class="src">Rule: active line, device first</span>
+            </div>
+          </div>
+        </div>
+        <ol class="notes" id="aNotes">
+          <li><span class="mk">1</span><span>Warm, and already on it. No holding message, no "let me check".</span></li>
+          <li><span class="mk">2</span><span>Reads the symptom. Calls and texts working means the line is active, so it goes straight to the phone and skips generic resets.</span></li>
+          <li><span class="mk">3</span><span>Two quick taps, in the order that fixes it most often: the data line first, then roaming.</span></li>
+          <li><span class="mk">4</span><span>Stays in the conversation. No article to go and read, and the customer knows someone is right there.</span></li>
+        </ol>
+        <div class="stepcap ai" id="aCap"><span class="dot"></span><span>Press Play to start.</span></div>
+      </div>
+    </div>
+    <div class="ctrl rv" style="margin-top:14px">
+      <button class="btn" id="annoToggle" aria-pressed="false">Show why the draft works</button>
+    </div>
+    <div class="result rv" aria-live="polite">
+      <div><div class="n tnum" id="rManual">162s</div><div class="t">Manual, this reply (assumed timings)</div></div>
+      <div><div class="n tnum" id="rAssist">43s</div><div class="t">Review and send the draft (assumed timings)</div></div>
+      <div><div class="n tnum" style="color:var(--cyan)" id="rNet">119s</div><div class="t">Back to Maya faster, with a warmer reply. Lookup-light replies save less, so the calculator below starts lower.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- EMAIL -->
+<section id="email">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="sec-label"><b>04 · Email</b>Context over templates</div>
+      <div>
+        <h2>The third email about the same problem <em>shouldn't read like the first.</em></h2>
+        <p class="lede">I ran AI drafting for the email team too, on a separate set of nine playbooks with their own conventions. Email exposes lazy writing fast, because the customer has time to reread it. Structure is what lets a draft be warm, specific and useful at once.</p>
+        <p class="small muted" style="margin-top:10px"><span class="ev i">Illustrative demo</span> Fictional carrier, customer and case. Not a production output.</p>
+      </div>
+    </div>
+
+    <div class="cust-mail rv">
+      <div class="mono small" style="color:var(--fg-3);margin-bottom:8px">From: Daniel Okafor · Subject: Number STILL not transferred · 3rd contact</div>
+      This is the third time I'm writing. I sent my account number and PIN twice already and my number still hasn't moved over. My old carrier says the problem is on your end. I've had a temporary number on this phone for four days. Can someone actually fix this?
+    </div>
+
+    <div class="inputs rv" aria-label="What the structured draft draws on">
+      <div class="card"><h4>Case context</h4><ul><li>Third contact in four days</li><li>Details submitted twice, correct both times</li><li>Porting team: held until the previous carrier releases the number</li><li>Port Order Number on file: PON 48213-NL</li></ul></div>
+      <div class="card"><h4>Approved information</h4><ul><li>Sharing the PON with the previous carrier lets them find and release the number</li><li>Voice specialists can run a 3-way call with the previous carrier</li><li>Callbacks run 9 AM to 9 PM ET</li><li>Old service stays active until the transfer completes</li></ul></div>
+      <div class="card"><h4>Communication standards</h4><ul><li>Warmth and ownership in the first line</li><li>Never ask for something the customer already sent</li><li>One clear next action, as numbered steps</li><li>Offer a done-for-you path on repeat contacts</li><li>No em dashes, approved closing</li></ul></div>
+    </div>
+
+    <div class="split rv">
+      <div class="panel anno-off" id="mailBad">
+        <div class="panel-h"><span class="tag">Generic reply</span><h3>Template with a name in it</h3></div>
+        <div class="mail">
+          <div class="hdr"><span>To: Daniel Okafor</span><span>Re: Number STILL not transferred</span></div>
+          <p>Hi Daniel,</p>
+          <p><span class="ann bad">We apologize for any inconvenience and completely understand your frustration.</span><span class="mk bad">1</span> <span class="ann bad">Our team is currently looking into your number transfer request.</span><span class="mk bad">2</span></p>
+          <p><span class="ann bad">Could you please confirm your account number and PIN so we can resubmit the request?</span><span class="mk bad">3</span></p>
+          <p><span class="ann bad">We appreciate your patience and will get back to you as soon as possible.</span><span class="mk bad">4</span></p>
+          <p>Kind regards,<br>Northline Support</p>
+        </div>
+        <ol class="notes">
+          <li><span class="mk bad">1</span><span>Apology filler that names no actual problem.</span></li>
+          <li><span class="mk bad">2</span><span>"Looking into" with no finding. He has heard this twice.</span></li>
+          <li><span class="mk bad">3</span><span>Asks for details he already sent twice. This is the moment customers churn.</span></li>
+          <li><span class="mk bad">4</span><span>No timeline, no next step, nothing he can do.</span></li>
+        </ol>
+      </div>
+      <div class="panel anno-off" id="mailGood">
+        <div class="panel-h"><span class="tag cy">Structured draft</span><h3>Playbook plus case context</h3></div>
+        <div class="mail">
+          <div class="hdr"><span>To: Daniel Okafor</span><span>Re: Number STILL not transferred</span></div>
+          <p>Hi Daniel,</p>
+          <p><span class="ann">You're absolutely right that this should have been done days ago, and I want to get it sorted for you today.</span><span class="mk">1</span></p>
+          <p><span class="ann">I've checked in directly with our porting team.</span><span class="mk">2</span> <span class="ann">Your details came through correctly both times. The transfer is on hold because your previous carrier hasn't released the number yet.</span><span class="mk">3</span></p>
+          <p><span class="ann">The quickest way to get it moving:</span><span class="mk">4</span></p>
+          <ol class="ann"><li>Contact your previous carrier and share your Port Order Number: <b>PON 48213-NL</b>.</li><li>Ask them to release the number for transfer.</li></ol>
+          <p><span class="ann">That should do the trick, and I'll email you the moment the transfer completes. Your old service stays active until then, so your number keeps working in the meantime.</span><span class="mk">5</span></p>
+          <p><span class="ann">If you'd rather not handle it yourself, I can set up a callback with one of our voice specialists. They'll start a 3-way call with your previous carrier and take care of the release with you. Just reply with a good number and a time between 9 AM and 9 PM ET.</span><span class="mk">6</span></p>
+          <p><span class="ann">I know this has taken longer than it should have, and I really appreciate your patience while we get it done together.</span><span class="mk">7</span></p>
+          <p>We're looking forward to hearing from you!</p>
+          <p>Best,</p>
+        </div>
+        <ol class="notes">
+          <li><span class="mk">1</span><span>Agrees with him first, in his terms. Warmth before process.</span></li>
+          <li><span class="mk">2</span><span>First person and specific: who was checked, instead of "our team is looking into it".</span></li>
+          <li><span class="mk">3</span><span>Clears him, then names the real cause in plain words.</span></li>
+          <li><span class="mk">4</span><span>One action he can take today, as numbered steps that survive email rendering.</span></li>
+          <li><span class="mk">5</span><span>A commitment the team can keep, plus a fact that lowers the stakes.</span></li>
+          <li><span class="mk">6</span><span>A done-for-you path, because this is his third contact.</span></li>
+          <li><span class="mk">7</span><span>Closes on the relationship. Patience is acknowledged, not demanded.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="ctrl rv" style="margin-top:14px">
+      <button class="btn" id="mailAnno" aria-pressed="false">Show annotations</button>
+    </div>
+  </div>
+</section>
+
+<!-- SMART REPLY -->
+<section id="smartreply">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="sec-label"><b>05 · Case B</b>Smart Reply</div>
+      <div>
+        <h2>Auto Assist routes on <em>what the customer types.</em> Smart Reply also reads <em>the account.</em></h2>
+        <p class="lede">Smart Reply was US Mobile's in-house drafting assistant, built by its engineering team in New York: retrieval over the same playbooks, plus read-only tool calls into live account data. I owned its prompt and testing. Every draft still went to an agent. Run the concept below on Maya's exact message, word for word. This time, the account knows something the words don't.</p>
+        <p class="small muted" style="margin-top:10px"><span class="ev c">Concept interface</span> Not a screenshot of the internal tool. Fictional customer and values.</p>
+      </div>
+    </div>
+
+    <div class="ctrl rv">
+      <button class="btn pri" id="srRun">Run Smart Reply</button>
+      <button class="btn" id="srReset">Reset</button>
+      <span class="small muted">Then hover any sentence in the draft to see its source.</span>
+    </div>
+
+    <div class="sr rv" id="sr">
+      <div class="sr-nav" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i></div>
+      <div class="sr-main">
+        <div class="sr-tick"><b>Chat · Maya R.</b><span>Northline (demo)</span><span>Line ending 0417</span><span class="tag cy">Smart Reply on</span></div>
+        <div class="sr-conv">
+          <div class="msg cust"><span class="who">Maya R. · 10:42</span>Hi! I set up my eSIM this morning. Calls and texts work fine but I have no data unless I'm on Wi-Fi. iPhone 15 Pro.</div>
+          <div class="msg agent" id="srSent" hidden><span class="who">You · 10:43</span><span id="srSentBody"></span></div>
+        </div>
+        <div class="sr-draft" id="srDraftBox">
+          <div class="sr-draft-h"><b>SMART REPLY DRAFT</b><span id="srStatus">Idle. Press Run.</span></div>
+          <div class="sr-body" id="srBody"><span class="muted">The draft appears here after the context checks finish.</span></div>
+          <div class="sr-act">
+            <button class="btn pri" id="srAccept" disabled>Accept and send</button>
+            <button class="btn" id="srEdit" disabled>Edit</button>
+            <button class="btn" id="srDismiss" disabled>Dismiss</button>
+            <span class="small muted" id="srActNote">The agent decides. Nothing sends on its own.</span>
+          </div>
+        </div>
+      </div>
+      <aside class="sr-side" aria-label="Copilot context panel">
+        <div class="sr-side-h"><span>Copilot context</span><span>read-only</span></div>
+        <div class="cmod idle" data-mod="1"><h6><span class="n">1</span>Playbook retrieved<span class="st na" data-st>waiting</span></h6><div><span id="srProc">Service troubleshooting · eSIM data</span><br><span class="muted" id="srProcNote">Matched on the message text</span></div></div>
+        <div class="cmod idle" data-mod="2"><h6><span class="n">2</span>Account context<span class="st na" data-st>waiting</span></h6><dl class="kv"><dt>Line status</dt><dd>Active</dd><dt>eSIM</dt><dd>Installed today</dd><dt>Roaming</dt><dd>Canada and Mexico included</dd></dl></div>
+        <div class="cmod idle" data-mod="3"><h6><span class="n">3</span>Network check<span class="st na" data-st>waiting</span></h6><dl class="kv"><dt>Connected to</dt><dd class="hot">Partner network · Canada</dd><dt>Last seen</dt><dd>10:39 today</dd><dt>Outages</dt><dd>None</dd></dl></div>
+        <div class="cmod idle" data-mod="4"><h6><span class="n">4</span>From the conversation<span class="st na" data-st>waiting</span></h6><dl class="kv"><dt>Device</dt><dd>iPhone 15 Pro</dd><dt>Calls and texts</dt><dd>Working</dd><dt>Location</dt><dd>Not mentioned</dd></dl></div>
+        <div class="cmod idle" data-mod="5"><h6><span class="n">5</span>Live insight<span class="st na" data-st>waiting</span></h6><div>She's abroad <span class="mono" style="color:var(--cyan)">→</span> re-routed to roaming troubleshooting. Data Roaming must be <b>on</b>, the opposite of the at-home fix.</div></div>
+        <div class="cmod idle" data-mod="6"><h6><span class="n">6</span>Not visible to us<span class="st na" data-st>waiting</span></h6><div>The Data Roaming switch on her phone. The draft shows her where it is instead of assuming.</div></div>
+        <ul class="calls" aria-label="Tool calls">
+          <li><span>get_line_status</span><span class="st na" data-call="1">queued</span></li>
+          <li><span>get_account_summary</span><span class="st na" data-call="2">queued</span></li>
+          <li><span>check_network</span><span class="st na" data-call="3">queued</span></li>
+        </ul>
+      </aside>
+    </div>
+
+    <div class="contrast rv" aria-label="Same message, two systems">
+      <div class="cx"><span class="tag">Auto Assist reads the words</span><p>“…make sure Data Roaming is <b class="off">off</b>.”</p><small>Right for a customer at home.</small></div>
+      <div class="cx-mid"><span>Same message</span></div>
+      <div class="cx ai"><span class="tag cy">Smart Reply reads the account</span><p>“…turn <b class="on">on</b> Data Roaming.”</p><small>Right for Maya, who is in Canada.</small></div>
+    </div>
+    <blockquote class="pull rv">Routing on account state beats routing on phrasing.</blockquote>
+    <div class="split rv" style="margin-top:20px">
+      <div class="card">
+        <h4>What changes with account context</h4>
+        <p>Auto Assist can only route on Maya's words, and her words describe a customer at home. Smart Reply checks the network first, sees her on a partner network in Canada, re-routes to roaming troubleshooting and gives the opposite instruction. That is the whole case for account access: the fix depends on where the customer is, and customers rarely say.</p>
+        <p>The flip side, which shaped how we tested it: a wrong answer wrapped in real account data is more convincing, so agents accept it more. Playbook quality decides whether account access is an accuracy gain or a confident miss.</p>
+      </div>
+      <div class="card">
+        <h4>What I did on Smart Reply</h4>
+        <ul class="rules">
+          <li>Adapted the playbooks so both systems read them correctly, including gate wording ("only when confirmed") and semantic fact names.</li>
+          <li>Reworked and maintained the production system prompt. Traced three live complaints (account details crammed into greetings, length, coldness) to specific prompt lines and addressed them with six edits.</li>
+          <li>Worked with engineering on the caching plan, for consistency and cost.</li>
+          <li>Ran the testing and the feedback loops: question sheets per playbook, findings fed back to engineering, and candidate models compared side by side.</li>
+          <li>Sat in the daily stand-ups with the engineering team, and worked with product and engineering on model choice, testing, regression and rollout.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="own rv">
+      <div class="card me"><h4>I owned</h4><ul><li>The playbook library both systems read</li><li>Smart Reply's production prompt</li><li>Testing method and root-cause analysis</li><li>Release discipline and change records</li></ul></div>
+      <div class="card"><h4>I worked on with others</h4><ul><li>Model selection and budget</li><li>Tool-call scoping and caching plan</li><li>Regression runs and rollout</li><li>Adoption with shift leads and trainers</li></ul></div>
+      <div class="card"><h4>Built by others</h4><ul><li>Model hosting and the retrieval pipeline</li><li>Account and tool integrations</li><li>Zendesk's Auto Assist product itself</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- TIME -->
+<section id="time">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="sec-label"><b>06 · The maths</b>Time per reply, compounded</div>
+      <div>
+        <h2>Seconds per reply look small. <em>Long conversations make them big.</em></h2>
+        <p class="lede">A transparent model you can stress-test. Move the assumptions and watch how a modest saving per agent reply compounds across a 40-message and an 80-message conversation.</p>
+        <p class="small muted" style="margin-top:10px"><span class="ev mod">Modeled</span> Every number here comes from the inputs you set, so you can test it against your own floor.</p>
+      </div>
+    </div>
+
+    <div class="calc rv">
+      <div class="ctrls">
+        <div class="fld"><label for="inA">Conversation A, total messages <output id="oA">40</output></label><input id="inA" type="range" min="10" max="120" step="2" value="40"></div>
+        <div class="fld"><label for="inB">Conversation B, total messages <output id="oB">80</output></label><input id="inB" type="range" min="10" max="160" step="2" value="80"></div>
+        <div class="fld"><label for="inShare">Share written by the agent <output id="oShare">50%</output></label><input id="inShare" type="range" min="20" max="80" step="5" value="50"></div>
+        <div class="fld"><label for="inSec">Net seconds saved per agent reply <output id="oSec">30s</output></label><input id="inSec" type="range" min="0" max="120" step="5" value="30"></div>
+        <div class="formula">
+          <b>Net saved per reply</b> = manual handling time − (AI review + edit time)<br>
+          <b>Agent replies</b> = total messages × agent share<br>
+          <b>Saved per conversation</b> = agent replies × net seconds
+        </div>
+        <p class="small muted">Net means after the agent reads, checks and fixes the draft. A faster first draft is not the same as a resolved issue.</p>
+      </div>
+      <div style="min-width:0">
+        <div class="convs">
+          <div class="conv-row">
+            <div class="hd"><h4>Conversation A · <span id="lA">40</span> messages</h4><span class="mono small muted" id="rA">20 agent replies</span><span class="big tnum" id="bigA">10:00<small>min</small></span></div>
+            <div class="ticks" id="tkA" aria-hidden="true"></div>
+            <div class="sub" id="sA">20 × 30s = 600s</div>
+          </div>
+          <div class="conv-row">
+            <div class="hd"><h4>Conversation B · <span id="lB">80</span> messages</h4><span class="mono small muted" id="rB">40 agent replies</span><span class="big tnum" id="bigB">20:00<small>min</small></span></div>
+            <div class="ticks" id="tkB" aria-hidden="true"></div>
+            <div class="sub" id="sB">40 × 30s = 1,200s</div>
+          </div>
+        </div>
+        <div class="split" style="margin-top:14px">
+          <div class="card">
+            <h4>Scenarios at <span id="scShare">50%</span> agent share</h4>
+            <div class="tbl"><table class="sc" id="scTable" aria-label="Scenario table"></table></div>
+          </div>
+          <div class="card">
+            <h4>Sensitivity: minutes saved vs seconds per reply</h4>
+            <svg class="chart" id="sens" viewBox="0 0 420 240" role="img" aria-label="Line chart of minutes saved against net seconds per reply for conversations A and B"></svg>
+          </div>
+        </div>
+        <details>
+          <summary>Show the arithmetic</summary>
+          <div class="in arith" id="arith"></div>
+        </details>
+        <details>
+          <summary>Where per-reply seconds come from (the demo above)</summary>
+          <div class="in">
+            <div class="stack" id="stack"></div>
+            <p class="small" style="margin-top:12px">These are the assumed step times from the chat demo, for one lookup-heavy reply. Many replies need no lookup at all, so the default above uses 30 seconds, well below this example.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Scale lens: modeled capacity potential</summary>
+          <div class="in">
+            <p>Anchored on a measured figure: about 178,000 AI-assisted chats a month. Everything else is an input you set, so the result reads as modeled capacity at real volume.</p>
+            <div class="fld"><label for="inRpc">Assumed agent replies per conversation <output id="oRpc">6</output></label><input id="inRpc" type="range" min="1" max="20" step="1" value="6"></div>
+            <div class="fld"><label for="inUse">Assumed share of replies where the draft is used <output id="oUse">30%</output></label><input id="inUse" type="range" min="5" max="80" step="5" value="30"></div>
+            <p class="arith" id="scale"></p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RELIABILITY -->
+<section id="reliability">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="sec-label"><b>07 · Case C</b>Reliability and release</div>
+      <div>
+        <h2>A change to an AI playbook <em>isn't copy-editing.</em> It's a release.</h2>
+        <p class="lede">One word in the wrong place changes what thousands of drafts say. So every change went through the same loop: find the pattern, name the structural cause, make one precise change, prove it, and record it. Click through the loop.</p>
+      </div>
+    </div>
+    <div class="cycle rv" role="group" aria-label="Release loop" id="cycle"></div>
+    <div class="cy-detail rv">
+      <div class="card" id="cyCard"><h4 id="cyKicker">Step</h4><p class="rule" id="cyTitle"></p><p id="cyBody"></p></div>
+      <div class="patch" aria-label="Example change sheet entry">
+        <div class="ph"><span>CHANGE 14 · offers playbook</span><span class="ev i">Illustrative</span></div>
+        <pre><span style="color:var(--fg-3)">FIND (verbatim from the live text)</span>
+<span class="del">- The Spring bundle is available until 30 April with code SPRING20.</span>
+<span style="color:var(--fg-3)">REPLACE</span>
+<span class="add">+ The Spring bundle has ended. Only when confirmed that the customer</span>
+<span class="add">+ redeemed it before it ended, honour the price they were quoted.</span></pre>
+        <div class="chk">
+          <div><span>✓</span> match found exactly once in today's live text</div>
+          <div><span>✓</span> no end dates left in customer-facing text</div>
+          <div><span>✓</span> no em dashes, no banned words</div>
+          <div><span>✓</span> regression probes 6 of 6 passing, retirement change drafted</div>
+        </div>
+      </div>
+    </div>
+    <div class="patterns rv" aria-label="Named failure patterns">
+      <div class="pat"><b>A</b>No reachable source holds the fact, so the model fills the gap</div>
+      <div class="pat"><b>B</b>The rule exists but the structure doesn't let it be honoured</div>
+      <div class="pat"><b>C</b>The wrong playbook wins the route</div>
+      <div class="pat"><b>D</b>The AI says we don't offer something that we do</div>
+      <div class="pat"><b>E</b>Stale content still reads as live</div>
+    </div>
+    <div class="evi rv">
+      <div class="card"><div class="n am tnum">59</div><p>findings in my first full audit of the 35 chat playbooks, all addressed in one release.</p><span class="ev m">Measured</span></div>
+      <div class="card"><div class="n cy tnum">200<span style="font-size:.45em;color:var(--fg-3)"> of 233</span></div><p>proposed changes shipped after I reviewed every one. The changes that invented prices and promo codes were stopped.</p><span class="ev m">Measured</span></div>
+      <div class="card"><div class="n tnum">24</div><p>playbooks in one coordinated release, with every change tested first.</p><span class="ev m">Measured</span></div>
+      <div class="card"><div class="n tnum">85</div><p>self-serve Help Center flows audited, because public articles are part of what the AI reads.</p><span class="ev m">Measured</span></div>
+    </div>
+    <div class="card rv" style="margin-top:14px">
+      <h4>A real example of a structural cause</h4>
+      <p>Drafts kept quoting the wrong price for the top plan. The obvious answer was to add more pricing text. I checked what the AI was reading instead: the plans playbook, which held the right price, had no pricing words in its opening, so price questions never reached it. The cause was routing, not content. Recurrence afterwards was not formally tracked.</p>
+    </div>
+  </div>
+</section>
+
+<!-- LEADERSHIP -->
+<section id="leadership">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="sec-label"><b>08 · Case D</b>Leadership</div>
+      <div>
+        <h2>Systems that <em>keep running</em> after the handover.</h2>
+        <p class="lede">I came up from the support floor: chats, emails, quality reviews. The leadership work was turning what I knew into frameworks other people could run, then handing them over cleanly when I left for my MBA.</p>
+      </div>
+    </div>
+    <div class="arch-stage rv" style="padding:8px">
+      <div class="arch-scroll"><svg class="lead-svg" id="leadSvg" viewBox="0 0 1180 260" role="img" aria-label="Flow from individual expertise to documented framework, repeatable training, quality controls, handover and sustainable operations" style="min-width:760px"></svg></div>
+    </div>
+    <div class="lead-grid rv">
+      <div class="card"><h4>Expertise</h4><p>Frontline chat and email, quality reviews, then product experience. I knew where answers broke because I'd written them.</p></div>
+      <div class="card"><h4>Framework</h4><p>Co-designed a 10-day onboarding plan for new hires. Drafted two revisions of the email writing guidelines.</p></div>
+      <div class="card"><h4>Training</h4><p>Mentored five new-hire cohorts through the 10-day plan. Ran release training as one of the shift leads.</p></div>
+      <div class="card"><h4>Quality</h4><p>A changelog, a decisions log and a register of confirmed facts, so every change traced back to a source and a ruling.</p></div>
+      <div class="card"><h4>Handover</h4><p>Packaged the method as reusable skills, test sets and changelogs, wrote a full handover manual, and handed the work to three team leads.</p></div>
+      <div class="card"><h4>Continuity</h4><p>Wrote guides the training team adopted, and left a testing process the next owners could follow.</p></div>
+    </div>
+    <div class="shift rv">
+      <div class="card">
+        <h4>On the floor</h4>
+        <p class="rule">One of the shift leads on a 24/7 support floor of 300+ agents.</p>
+        <p>Escalations, approvals and release training. The playbooks I authored and owned were in use on every shift.</p>
+      </div>
+      <div class="card">
+        <h4>How I lead change</h4>
+        <ul class="rules">
+          <li>People adopt a tool when someone they trust shows them why it helps. Training came with every release.</li>
+          <li>Batch the evidence before acting. One anomaly is not a pattern.</li>
+          <li>Separate my decisions from other owners' domains, and route proposals rather than overwrite.</li>
+          <li>Write it down so the next person doesn't need me.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MORE -->
+<section id="more">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="sec-label"><b>09 · Also</b>Adjacent work</div>
+      <div><h2>Three more pieces, <em>each a different skill.</em></h2></div>
+    </div>
+    <div class="more rv">
+      <div class="card"><span class="ev m">Built</span><h3>Decision-tree tools</h3><p>Decision-tree tools that support agents query mid-chat. Each walks the agent through one decision, such as an eligibility check.</p></div>
+      <div class="card"><span class="ev m">Strategy delivered</span><h3>Copilot testing strategy</h3><p>A testing approach for an admin-portal copilot: banks of questions with known correct answers, and a 23-item diagnostic set to separate data problems from reasoning problems.</p></div>
+      <div class="card"><span class="ev c">Design handed to engineering</span><h3>Follow-up email system</h3><p>A design for automatically following up with customers who left a negative rating, specified to the point engineering could build from it. A pilot ran as a showcase.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact" class="has-art">
+  <div class="contact-art" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="contact">
+      <div>
+        <div class="kicker">Open to work · Istanbul and remote</div>
+        <h2>I ran the AI side of support for a carrier with about a million customers. <em>I can run yours.</em></h2>
+        <p class="lede">Looking for AI operations, conversational AI, support automation and CX operations roles. Full-time, part-time or contract, remote or in Istanbul. CV on request, through LinkedIn.</p>
+      </div>
+      <div>
+                <div class="cline"><span class="k">LinkedIn</span><a href="https://www.linkedin.com/in/syed-mohammad-hamdani-295851213" target="_blank" rel="noopener">syed-mohammad-hamdani</a></div>
+        <div class="cline"><span class="k">Based</span><span>Istanbul, Türkiye · UTC+3</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Demos use a fictional carrier (Northline) and fictional customers. Interfaces are concepts. No internal text, prompts or customer data appear here. Measured figures come from my work at US Mobile, my former employer. This site is independent of US Mobile. Hero art is AI-generated.</p>
+    <p>© 2026 Syed Mohammad Raza Hamdani</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+var RM = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+var SVGNS = "http://www.w3.org/2000/svg";
+function $(s,r){return (r||document).querySelector(s);}
+function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
+function el(tag,attrs,parent){var e=document.createElementNS(SVGNS,tag);for(var k in attrs){e.setAttribute(k,attrs[k]);}if(parent)parent.appendChild(e);return e;}
+function fmt(n){return n.toLocaleString("en-US");}
+
+/* ---------------- NAV ---------------- */
+(function(){
+  var links=$$(".nav a");var map={};links.forEach(function(a){map[a.getAttribute("href").slice(1)]=a;});
+  if(!("IntersectionObserver" in window))return;
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){links.forEach(function(a){a.classList.remove("on");});var a=map[e.target.id];if(a)a.classList.add("on");}});},{rootMargin:"-45% 0px -50% 0px"});
+  Object.keys(map).forEach(function(id){var s=document.getElementById(id);if(s)io.observe(s);});
+})();
+
+/* ---------------- ARCHITECTURE ---------------- */
+var CATS=[
+ {id:"A",name:"Buy and decide",d:"New customers choosing a plan, a network, an offer or checking out.",p:[
+  ["Plans, offers and activation","Which plan, which network, free trial and checkout questions."],
+  ["Current offers and promo codes","Live offers and codes. A code rejected at checkout lands here."],
+  ["Shopping cart","Cart behaviour and adding items."],
+  ["Guest checkout","Orders placed without an account."]]},
+ {id:"B",name:"Get the line working",d:"From a purchase to a working line.",p:[
+  ["SIM, activation and number transfer","Activating, bringing a number over, ordering a SIM."],
+  ["Device compatibility and validation","Will my phone work, IMEI checks, carrier locks."],
+  ["eSIM install and swaps","eSIM won't install, QR code problems, moving a line to eSIM."]]},
+ {id:"C",name:"Service faults",d:"A working line that stopped behaving.",p:[
+  ["Service troubleshooting","No service, no data or failing calls on an active line in the US."],
+  ["International roaming troubleshooting","Abroad and nothing works. Location outranks every other route."]]},
+ {id:"D",name:"Feature faults",d:"One feature misbehaving on a working line.",p:[
+  ["Voicemail","Voicemail and visual voicemail setup and faults."],
+  ["Picture and group messages","MMS and group messaging."],
+  ["Hotspot","Personal hotspot setup and limits."],
+  ["Wi-Fi Calling","Turning on and fixing Wi-Fi Calling."],
+  ["RCS on Android","Chat features on Android phones."],
+  ["RCS on iPhone","Chat features on iPhone."],
+  ["Streaming quality","Video resolution and data-saving settings."]]},
+ {id:"E",name:"Wearables and devices",d:"Watches and connected devices, routed on the brand named.",p:[
+  ["Apple Watch","Plans, setup and troubleshooting. Holds the generic “my watch” entry."],
+  ["Samsung Galaxy Watch","Plans, setup and troubleshooting for Galaxy Watch."],
+  ["Pixel Watch","Troubleshooting for Pixel Watch."],
+  ["IoT and connected devices","Tablets, trackers and other connected devices."]]},
+ {id:"F",name:"Plan behaviour and orders",d:"What a plan does, buying add-ons, order status.",p:[
+  ["Service features and orders","Roaming purchases, top-ups, features and orders."],
+  ["International calling","Calling other countries from the US."]]},
+ {id:"G",name:"Account and add-ons",d:"Managing the account itself.",p:[
+  ["Account and add-ons","Add-ons, line changes and account settings."],
+  ["Account login","Sign-in problems."],
+  ["Account and line security","Protecting the account and the number."],
+  ["Callback requests","Scheduling a call back."]]},
+ {id:"H",name:"Rewards and referrals",d:"Programmes that reward customers.",p:[
+  ["Referrals and rewards","The referral programme and rewards."],
+  ["Perks","Plan perks and who qualifies."]]},
+ {id:"I",name:"Adjacent products",d:"Products sold alongside mobile service.",p:[
+  ["Satellite internet","Residential and roaming satellite internet."],
+  ["Device protection","Protection plans for devices."],
+  ["Refurbished devices","Refurbished phones sold through a partner."],
+  ["Device offers","Time-limited phone offers."]]},
+ {id:"J",name:"Exits",d:"Customers who want to leave.",p:[
+  ["Retention and cancellations","Cancellation requests and what we can offer."]]},
+ {id:"K",name:"Cross-cutting",d:"Rules every other playbook leans on.",p:[
+  ["Capability limits","What we don't offer at all. The single place that says no."],
+  ["Limitations and visibility notes","What the AI and the agent can and can't see."]]}
+];
+var EMAILS=[
+ ["Email - Activation and number transfer","Activation, port-in and number transfer questions."],
+ ["Email - Plans, products and info","Plans, products, billing and account information."],
+ ["Email - eSIM and network transfers","eSIM, SIM and device questions, and moving a line between networks."],
+ ["Email - Marketing offers and renewal","Offers, promo terms and renewals."],
+ ["Email - Starlink Residential and Roam","Satellite internet at home and on the move."],
+ ["Email - Service and roaming troubleshooting","No service, no data, and problems while abroad."],
+ ["Email - Calling, messaging and features","Voicemail, messaging, hotspot, Wi-Fi Calling and international calling."],
+ ["Email - Watches and connected devices","Watch plans, tablets and other connected devices."],
+ ["Email - Account, security and cancellations","Login, account and line security, and requests to leave."]
+];
+var BIG={
+ chatIn:{x:70,y:300,r:9,label:"Chat",t:"Chat",d:"Live conversations. 35 playbooks, about 178,000 AI-assisted chats a month."},
+ emailIn:{x:70,y:690,r:9,label:"Email",t:"Email",d:"The specialist email team. 9 playbooks with email conventions: numbered steps, approved closings, full steps instead of bare links."},
+ router:{x:240,y:300,r:11,label:"Routing contract",t:"Routing contract",d:"Maps every customer intent to exactly one owning playbook, with rules that separate look-alike intents."},
+ composer:{x:960,y:400,r:12,label:"Draft composer",t:"Draft composer",d:"Combines the owning playbook with the shared layers into a suggested reply."},
+ facts:{x:960,y:120,r:7,label:"Facts register",t:"Canonical facts register",d:"One confirmed source for prices, rules and dates, so a fact changes in one place."},
+ guide:{x:960,y:215,r:7,label:"Communication guidelines",t:"Communication guidelines",d:"Voice, banned words, formatting and approved closing lines."},
+ hc:{x:960,y:585,r:7,label:"Public Help Center",t:"Public Help Center",d:"Articles the AI can read and link. I audited 85 self-serve flows."},
+ acct:{x:960,y:680,r:7,label:"Account context",t:"Live account context",d:"Read-only account data. Smart Reply only, not Auto Assist.",amber:true},
+ agent:{x:1068,y:400,r:10,label:"Agent review",t:"Agent review",d:"Every draft is read, edited or dismissed by a person before it reaches the customer."},
+ cust:{x:1150,y:400,r:8,label:"Customer",t:"Customer",d:"Receives the reply the agent approved."}
+};
+var TRACES={
+ esim:{proc:"C0",side:["facts","guide"],rule:"A fault on an active line in the US goes to service troubleshooting.",why:"Calls and texts work, so the line is active. That makes this a fault, not an activation question. The draft draws on confirmed facts, the guidelines and the public Help Center. Section 03 plays this exact case."},
+ abroad:{proc:"C1",side:["facts","guide"],rule:"Physically abroad goes to roaming troubleshooting. Location outranks everything.",why:"Without this rule, “nothing works” matches general service troubleshooting, which gives US-only steps to someone in Rome."},
+ promo:{proc:"A1",side:["facts","guide"],rule:"A code that discounts a product belongs to the offers playbook.",why:"The plan's price lives with the plan; the code lives with offers. Two owners for one fact is how drafts blend old and new prices."},
+ watch:{proc:"E1",side:["facts","guide","hc"],rule:"Wearables route on the brand the customer names.",why:"Only one playbook holds the generic “my watch” entry. A named brand goes straight to its own playbook, so Galaxy Watch rules never leak into Apple Watch answers."},
+ forward:{proc:"K0",side:["guide"],rule:"“We don't offer that” goes to capability limits.",why:"One playbook owns every refusal, so no other playbook has to improvise a no. “Not on your plan” is a different answer, owned by the product."},
+ port:{proc:"EM0",side:["facts","guide","hc"],email:true,rule:"Email has its own nine playbooks and its own conventions.",why:"Email drafts use numbered steps, approved closings and full steps instead of bare links. Chat conventions never bleed into email, and the reverse. Section 04 shows this case."}
+};
+
+var svg=$("#arch"), gE=$("#gEdges"), gA=$("#gActive"), gN=$("#gNodes"), gP=$("#gPulses");
+var nodes={}; var procList=[]; var edges=[]; var detail=false;
+(function layout(){
+  var y=34, step=14.4, gap=8;
+  CATS.forEach(function(c,ci){
+    var ys=[];
+    c.p.forEach(function(p,pi){
+      var id=c.id+pi; var n={id:id,x:600,y:y,r:3.6,label:p[0],t:p[0],d:p[1]+" Category "+c.id+": "+c.name+".",kind:"proc",cat:c.id};
+      nodes[id]=n; procList.push(n); ys.push(y); y+=step;
+    });
+    y+=gap;
+    var hy=(ys[0]+ys[ys.length-1])/2;
+    nodes["hub"+c.id]={id:"hub"+c.id,x:430,y:hy,r:5.5,label:c.id+" · "+c.name,t:c.id+" · "+c.name,d:c.d+" Owns "+c.p.length+" playbook"+(c.p.length>1?"s":"")+".",kind:"hub"};
+  });
+  BIG.router.y=BIG.chatIn.y=(nodes.hubE.y+nodes.hubF.y)/2;
+  var ey=y+18; var eys=[];
+  for(var j=0;j<9;j++){
+    var id="EM"+j;
+    var em=EMAILS[j];
+    nodes[id]={id:id,x:600,y:ey,r:3.6,label:em[0],t:em[0],d:em[1]+" One of nine playbooks written for the email team.",kind:"proc",cat:"EM",email:true};
+    procList.push(nodes[id]); eys.push(ey); ey+=step;
+  }
+  nodes.hubEM={id:"hubEM",x:430,y:(eys[0]+eys[8])/2,r:5.5,label:"Email · 9 playbooks",t:"Email playbooks",d:"Nine playbooks with their own conventions, kept separate from chat.",kind:"hub",email:true};
+  BIG.emailIn.y=nodes.hubEM.y;
+  for(var k in BIG){nodes[k]=Object.assign({id:k,kind:"big"},BIG[k]);}
+  var H=Math.ceil(ey+14);
+  svg.setAttribute("viewBox","0 0 1200 "+H);
+})();
+
+function curve(a,b){var mx=(a.x+b.x)/2;return "M"+a.x+","+a.y+" C"+mx+","+a.y+" "+mx+","+b.y+" "+b.x+","+b.y;}
+function addEdge(a,b,cls){var p=el("path",{d:curve(nodes[a],nodes[b]),fill:"none",stroke:cls==="em"?"#f3b65c":"#62e3ff","stroke-opacity":cls==="soft"?0.1:0.16,"stroke-width":cls==="soft"?0.8:1},gE);edges.push({a:a,b:b,p:p});return p;}
+(function drawEdges(){
+  addEdge("chatIn","router");
+  CATS.forEach(function(c){addEdge("router","hub"+c.id);c.p.forEach(function(p,i){addEdge("hub"+c.id,c.id+i);addEdge(c.id+i,"composer","soft");});});
+  addEdge("emailIn","hubEM","em");
+  for(var j=0;j<9;j++){addEdge("hubEM","EM"+j,"em");addEdge("EM"+j,"composer","soft");}
+  ["facts","guide","hc","acct"].forEach(function(s){addEdge(s,"composer");});
+  addEdge("composer","agent");addEdge("agent","cust");
+})();
+
+var tip=$("#tip"), stage=$(".arch-stage");
+function showTip(n,evt){
+  tip.innerHTML="<b></b><span></span>";tip.firstChild.textContent=n.t;tip.lastChild.textContent=n.d;
+  var sr=stage.getBoundingClientRect(), x, y;
+  if(evt&&evt.clientX){x=evt.clientX-sr.left+14;y=evt.clientY-sr.top+14;}
+  else{var b=evt.target.getBoundingClientRect();x=b.right-sr.left+8;y=b.top-sr.top;}
+  x=Math.min(x,sr.width-270);tip.style.left=Math.max(8,x)+"px";tip.style.top=y+"px";tip.classList.add("on");
+}
+function hideTip(){tip.classList.remove("on");}
+
+function drawNodes(){
+  gN.innerHTML="";
+  Object.keys(nodes).forEach(function(k){
+    var n=nodes[k];
+    var g=el("g",{class:"node","data-id":k,tabindex:"0",role:"button","aria-label":n.t+". "+n.d},gN);
+    var col=n.amber||n.email?"#f3b65c":(n.kind==="hub"?"#7b93ff":"#62e3ff");
+    el("circle",{class:"halo",cx:n.x,cy:n.y,r:n.r+5,fill:"transparent",stroke:"transparent"},g);
+    var c=el("circle",{class:"core",cx:n.x,cy:n.y,r:n.r,fill:"#0f1216",stroke:col,"stroke-width":n.kind==="big"?1.6:1.2},g);
+    n.core=c;n.col=col;
+    if(n.kind==="big"){
+      el("circle",{cx:n.x,cy:n.y,r:Math.max(2,n.r-6),fill:col,opacity:.85},g);
+      var below=(k==="facts"||k==="guide"||k==="hc"||k==="acct");var above=(k==="router");
+      var t=el("text",{x:below?n.x+14:n.x,y:below?n.y+4:(above?n.y-n.r-9:n.y+n.r+16),"text-anchor":below?"start":"middle",class:"node-label","font-size":"13"},g);
+      t.textContent=n.label; t.setAttribute("fill","#bdb7ac");
+      t.setAttribute("paint-order","stroke");t.setAttribute("stroke","#0f1216");t.setAttribute("stroke-width","4");
+    } else if(n.kind==="hub"){
+      var th=el("text",{x:n.x-12,y:n.y+3.5,"text-anchor":"end",class:"node-label hub"},g);
+      th.textContent=n.label;th.setAttribute("paint-order","stroke");th.setAttribute("stroke","#0f1216");th.setAttribute("stroke-width","4");
+    } else {
+      var tp=el("text",{x:n.x+10,y:n.y+3.6,class:"node-label pl","font-size":"12"},g);
+      tp.textContent=n.label;tp.setAttribute("paint-order","stroke");tp.setAttribute("stroke","#0f1216");tp.setAttribute("stroke-width","3.5");
+      tp.style.display=detail?"":"none"; n.text=tp;
+    }
+    g.addEventListener("mouseenter",function(e){showTip(n,e);});
+    g.addEventListener("mousemove",function(e){showTip(n,e);});
+    g.addEventListener("mouseleave",hideTip);
+    g.addEventListener("focus",function(e){showTip(n,e);});
+    g.addEventListener("blur",hideTip);
+    g.addEventListener("click",function(){var tr=Object.keys(TRACES).filter(function(t){return TRACES[t].proc===k;})[0];if(tr)runTrace(tr);});
+  });
+}
+drawNodes();
+
+function setDetail(on){detail=on;$("#viewOverview").setAttribute("aria-pressed",String(!on));$("#viewDetail").setAttribute("aria-pressed",String(on));
+  procList.forEach(function(n){if(n.text)n.text.style.display=(on||n.lit)?"":"none";});}
+$("#viewOverview").addEventListener("click",function(){setDetail(false);});
+$("#viewDetail").addEventListener("click",function(){setDetail(true);});
+
+/* pulses */
+var pulses=[];
+function pulseAlong(pathD,opts){
+  var p=el("path",{d:pathD,fill:"none",stroke:"none"},gP);
+  var len=p.getTotalLength();
+  var c=el("circle",{r:opts.r||3,fill:opts.amber?"url(#pulseA)":"url(#pulseG)",opacity:opts.op||1},gP);
+  var o={p:p,c:c,len:len,t0:performance.now(),dur:opts.dur||1400,loop:!!opts.loop,delay:opts.delay||0,done:opts.done};
+  pulses.push(o);return o;
+}
+function tick(now){
+  for(var i=pulses.length-1;i>=0;i--){
+    var o=pulses[i];var t=(now-o.t0-o.delay)/o.dur;
+    if(t<0){o.c.setAttribute("opacity",0);continue;}
+    if(t>=1){if(o.loop){o.t0=now;o.delay=0;t=0;}else{o.p.remove();o.c.remove();pulses.splice(i,1);if(o.done)o.done();continue;}}
+    var e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    var pt=o.p.getPointAtLength(e*o.len);o.c.setAttribute("cx",pt.x);o.c.setAttribute("cy",pt.y);o.c.setAttribute("opacity",1);
+  }
+  requestAnimationFrame(tick);
+}
+if(!RM)requestAnimationFrame(tick);
+
+function chainD(ids){var d="";for(var i=0;i<ids.length-1;i++){var seg=curve(nodes[ids[i]],nodes[ids[i+1]]);d+=(i===0?seg:seg.replace(/^M[^C]+/,"L"+nodes[ids[i]].x+","+nodes[ids[i]].y+" "));}return d;}
+
+var ambientTimer=null, activeTrace=null;
+function ambient(){
+  if(RM||activeTrace)return;
+  var n=procList[Math.floor(Math.random()*procList.length)];
+  var ids=n.email?["emailIn","hubEM",n.id,"composer"]:["chatIn","router","hub"+n.cat,n.id,"composer"];
+  pulseAlong(chainD(ids),{dur:2600,r:2.4,op:.7,amber:!!n.email});
+}
+if(!RM){ambientTimer=setInterval(ambient,700);}
+
+function clearTrace(){
+  gA.innerHTML="";Object.keys(nodes).forEach(function(k){var n=nodes[k];n.lit=false;n.core.setAttribute("fill","#0f1216");n.core.removeAttribute("filter");});
+  setDetail(detail);
+  pulses.slice().forEach(function(o){o.p.remove();o.c.remove();});pulses.length=0;
+}
+function lightNode(k,amber){var n=nodes[k];n.lit=true;n.core.setAttribute("fill",amber?"#f3b65c":"#62e3ff");n.core.setAttribute("filter","url(#glow)");if(n.text)n.text.style.display="";}
+function runTrace(key){
+  var tr=TRACES[key];activeTrace=key;clearTrace();
+  $$(".arch-bar .chip").forEach(function(b){b.setAttribute("aria-pressed",String(b.dataset.trace===key));});
+  var amber=!!tr.email; var col=amber?"#f3b65c":"#62e3ff";
+  var procNode=nodes[tr.proc];
+  var main=tr.email?["emailIn","hubEM",tr.proc,"composer","agent","cust"]:["chatIn","router","hub"+procNode.cat,tr.proc,"composer","agent","cust"];
+  var dMain=chainD(main);
+  var glowP=el("path",{d:dMain,fill:"none",stroke:col,"stroke-width":2.2,"stroke-opacity":.9,filter:"url(#glow)"},gA);
+  var len=glowP.getTotalLength();
+  if(!RM){glowP.style.strokeDasharray=len;glowP.style.strokeDashoffset=len;glowP.getBoundingClientRect();glowP.style.transition="stroke-dashoffset 1.6s cubic-bezier(.5,.1,.2,1)";glowP.style.strokeDashoffset=0;}
+  tr.side.forEach(function(s,i){var sp=el("path",{d:curve(nodes[s],nodes.composer),fill:"none",stroke:"#7b93ff","stroke-width":1.5,"stroke-opacity":.8,"stroke-dasharray":"3 4"},gA);lightNode(s);});
+  main.forEach(function(k,i){setTimeout(function(){if(activeTrace===key)lightNode(k,amber&&(k==="emailIn"||k==="hubEM"||k===tr.proc));},RM?0:i*230);});
+  if(!RM){pulseAlong(dMain,{dur:2400,r:4.5,loop:true,amber:amber});pulseAlong(dMain,{dur:2400,r:3,loop:true,delay:1200,amber:amber});}
+  $("#traceRule").textContent=tr.rule;$("#traceWhy").textContent=tr.why;
+}
+$$(".arch-bar .chip").forEach(function(b){b.addEventListener("click",function(){if(activeTrace===b.dataset.trace){activeTrace=null;clearTrace();b.setAttribute("aria-pressed","false");$("#traceRule").textContent="Pick a case to see which rule decides the route.";$("#traceWhy").textContent="Hover or tab through any node for what it does.";}else runTrace(b.dataset.trace);});});
+
+/* ---------------- 63% BLOCKS ---------------- */
+(function(){
+  var wrap=$("#blocks");var gated=[1,2,4,5,7,8,10,11,13,14,16,17,19,21,22,24,25,27,28];
+  for(var i=0;i<30;i++){var b=document.createElement("div");b.className="blk"+(gated.indexOf(i)>-1?" gated":"");wrap.appendChild(b);}
+  function set(after){
+    $("#blkBefore").setAttribute("aria-pressed",String(!after));$("#blkAfter").setAttribute("aria-pressed",String(after));
+    $$(".blk",wrap).forEach(function(b,i){var g=gated.indexOf(i)>-1;setTimeout(function(){b.classList.toggle("gated",!after&&g);b.classList.toggle("open",after);},RM?0:i*25);});
+    var num=$("#blkNum");num.classList.toggle("cy",after);
+    num.textContent=after?"0":"63%";
+    $("#blkHead").textContent=after?"agent clicks needed for a draft to appear, by design.":"of agent actions were gated behind buttons most agents never pressed.";
+    $("#blkCap").textContent=after?"Zero-input format: conditions are plain gates the AI reads from the conversation, so every block can inform the draft without a click.":"30 instruction blocks in a scenario-format playbook. 19 of them only appeared after an agent pressed a button.";
+  }
+  $("#blkBefore").addEventListener("click",function(){set(false);});
+  $("#blkAfter").addEventListener("click",function(){set(true);});
+})();
+
+/* ---------------- CHAT DEMO ---------------- */
+var DEMO=(function(){
+  var MS=70, speed=1, t=0, running=false, last=0, raf=0;
+  var mUI=$("#manual .ui"); mUI.style.position="relative";
+  var cursor=$("#mCursor"); mUI.appendChild(cursor);
+  var MANUAL_REPLY="Thanks for waiting! Please go to Settings > Cellular > Cellular Data and make sure your Northline line is selected. You can learn more about this here.";
+  var AA_HTML='<p><span class="ann">Hey Maya! Happy to help get your data going.</span><span class="mk">1</span> <span class="ann">Since calls and texts are working, your line is all set, so this is just a quick setting on your iPhone.</span><span class="mk">2</span></p>'+
+   '<ol><li>Go to Settings &gt; Cellular &gt; Cellular Data and select your Northline line.</li><li>Back in Cellular, tap your Northline line, then Cellular Data Options, and make sure Data Roaming is off.<span class="mk">3</span></li></ol>'+
+   '<p><span class="ann">I’m right here if that doesn’t do the trick!</span><span class="mk">4</span></p>';
+
+  function tab(name){$$("#manual .tabs span").forEach(function(s){s.classList.toggle("on",s.dataset.tab===name);});$$("#manual .pane").forEach(function(p){p.classList.toggle("on",p.dataset.pane===name);});}
+  function moveCursor(target){if(!target)return;var u=mUI.getBoundingClientRect(),b=target.getBoundingClientRect();cursor.style.left=(b.left-u.left+Math.min(b.width*0.5,60))+"px";cursor.style.top=(b.top-u.top+b.height*0.55)+"px";}
+  function hl(sel,n){$$(sel).forEach(function(l){l.classList.toggle("hl",+l.dataset.l===n);});}
+  function cap(id,txt,cls){var c=$(id);c.className="stepcap"+(cls?" "+cls:"");c.lastChild.textContent=txt;}
+  function addMsg(threadSel,html,who){var d=document.createElement("div");d.className="msg agent";d.innerHTML='<span class="who">'+who+'</span>'+html;$(threadSel).appendChild(d);return d;}
+
+  var manual=[
+   {d:10,start:function(){tab("chat");$("#mCust").classList.add("hl");moveCursor($("#mCust"));cap("#mCap","Reads the customer's message.");}},
+   {d:6,start:function(){$("#mCust").classList.remove("hl");moveCursor($("#mComp"));cap("#mCap","Sends a holding message so the customer knows someone is on it.");},
+    prog:function(p){var s="Let me check that for you!";$("#mComp").innerHTML='<span class="cap">Composer</span>'+esc(s.slice(0,Math.ceil(s.length*Math.min(1,p*1.4))))+'<span class="caret"></span>';},
+    end:function(){addMsg("#mThread","Let me check that for you!","Agent · 10:43");$("#mComp").innerHTML='<span class="cap">Composer</span><span class="ph">Type a reply…</span>';}},
+   {d:13,start:function(){moveCursor($('#manual .tabs span[data-tab="kb"]'));tab("kb");cap("#mCap","Opens the internal knowledge base and searches.");},
+    prog:function(p){var s="esim no data after activation";$("#kbSearch").textContent=s.slice(0,Math.ceil(s.length*Math.min(1,p*1.3)));}},
+   {d:35,start:function(){cap("#mCap","Reads the internal article to find the right branch.");},prog:function(p){hl("#manual [data-pane=kb] .ln",1+Math.min(4,Math.floor(p*5)));}},
+   {d:12,start:function(){hl("#manual [data-pane=kb] .ln",0);moveCursor($('#manual .tabs span[data-tab="hc"]'));tab("hc");cap("#mCap","Opens the public Help Center to find a link the customer can use.");},
+    prog:function(p){var s="iphone cellular data";$("#hcSearch").textContent=s.slice(0,Math.ceil(s.length*Math.min(1,p*1.3)));}},
+   {d:18,start:function(){cap("#mCap","Checks the public steps match the internal article.");},prog:function(p){hl("#manual [data-pane=hc] .ln",2+Math.min(2,Math.floor(p*3)));}},
+   {d:3,start:function(){hl("#manual [data-pane=hc] .ln",0);moveCursor($('#manual .tabs span[data-tab="chat"]'));tab("chat");cap("#mCap","Back to the conversation.");}},
+   {d:55,start:function(){moveCursor($("#mComp"));cap("#mCap","Writes the reply from what they found.");},
+    prog:function(p){var n=Math.ceil(MANUAL_REPLY.length*Math.min(1,p*1.08));$("#mComp").innerHTML='<span class="cap">Composer</span>'+esc(MANUAL_REPLY.slice(0,n))+'<span class="caret"></span>';}},
+   {d:10,start:function(){var body=esc(MANUAL_REPLY).replace(/here\.$/,'<span class="lnk sel" id="mHere">here</span>.');$("#mComp").innerHTML='<span class="cap">Composer</span>'+body;moveCursor($("#mHere"));cap("#mCap","Selects “here”, pastes the Help Center link, sends.");},
+    prog:function(p){if(p>.5){var h=$("#mHere");if(h)h.classList.remove("sel");}},
+    end:function(){addMsg("#mThread",esc(MANUAL_REPLY).replace(/here\.$/,'<span class="lnk" title="help.northline.example/iphone-cellular-data">here</span>.'),"Agent · 10:45");$("#mComp").innerHTML='<span class="cap">Composer</span><span class="ph">Type a reply…</span>';}}
+  ];
+  var assisted=[
+   {d:3,start:function(){$("#aComp").innerHTML='<span class="cap">Auto Assist suggestion</span><span class="ph">Matching playbook and drafting…</span>';cap("#aCap","Message arrives. Auto Assist matches the owning playbook and drafts.","ai");}},
+   {d:10,start:function(){$("#aComp").innerHTML='<span class="cap">Auto Assist suggestion</span>'+AA_HTML;cap("#aCap","The agent reads the customer's message and the draft together.","ai");}},
+   {d:22,start:function(){cap("#aCap","Reviews the draft against what the customer actually said.","ai");},prog:function(p){var ps=$$("#aComp > p, #aComp > ol");var i=Math.min(ps.length-1,Math.floor(p*ps.length));ps.forEach(function(x,j){x.style.background=j===i?"rgba(243,182,92,.12)":"";x.style.borderRadius="4px";});}},
+   {d:5,start:function(){$$("#aComp > p, #aComp > ol").forEach(function(x){x.style.background="";});$("#aSrc").hidden=false;$$("#aSrc .src").forEach(function(s){s.classList.add("hl");});cap("#aCap","Checks the cited playbook.","ai");}},
+   {d:3,start:function(){$$("#aSrc .src").forEach(function(s){s.classList.remove("hl");});cap("#aCap","Sends.","ai");},end:function(){addMsg("#aThread",AA_HTML,"Agent · 10:43");$("#aComp").innerHTML='<span class="cap">Auto Assist suggestion</span><span class="ph">Waiting for the customer’s reply…</span>';cap("#aCap","Done. Waiting on the customer while the manual side is still searching.","done");}}
+  ];
+  function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function total(list){return list.reduce(function(a,s){return a+s.d;},0);}
+  var TM=total(manual), TA=total(assisted);
+  $("#rManual").textContent=TM+"s";$("#rAssist").textContent=TA+"s";$("#rNet").textContent=(TM-TA)+"s";
+
+  function makeRunner(list,clockSel,doneCap){
+    var idx=-1;
+    return {reset:function(){idx=-1;},step:function(t){
+      var acc=0,i=0;for(;i<list.length;i++){if(t<acc+list[i].d)break;acc+=list[i].d;}
+      while(idx<i&&idx<list.length){if(idx>=0&&list[idx].end&&!list[idx]._ended){list[idx].end();list[idx]._ended=true;}idx++;if(idx<list.length){list[idx]._ended=false;list[idx].start&&list[idx].start();}}
+      if(i<list.length&&list[i].prog){list[i].prog((t-acc)/list[i].d);}
+      var tt=Math.min(t,total(list));$(clockSel).textContent=Math.floor(tt);
+      if(i>=list.length&&doneCap){doneCap();doneCap=null;}
+    }};
+  }
+  var rM,rA;
+  function reset(){
+    t=0;cancelAnimationFrame(raf);running=false;
+    $("#mThread").innerHTML="";$("#aThread").innerHTML="";
+    $("#mComp").innerHTML='<span class="cap">Composer</span><span class="ph">Type a reply…</span>';
+    $("#aComp").innerHTML='<span class="cap">Auto Assist suggestion</span><span class="ph">Waiting for the customer’s message…</span>';
+    $("#kbSearch").textContent="";$("#hcSearch").textContent="";$("#aSrc").hidden=true;$("#mCust").classList.remove("hl");
+    $$(".ln").forEach(function(l){l.classList.remove("hl");});tab("chat");
+    manual.forEach(function(s){s._ended=false;});assisted.forEach(function(s){s._ended=false;});
+    rM=makeRunner(manual,"#mClock",function(){cap("#mCap","Done. One step, a link to an article, and Maya does the rest alone.","done");});
+    rA=makeRunner(assisted,"#aClock");
+  }
+  function frame(now){
+    var dt=Math.min(100,now-last);last=now;t+=dt/MS*speed;
+    rM.step(t);rA.step(t);
+    if(t<TM+1){raf=requestAnimationFrame(frame);}else{running=false;$("#demoPlay").textContent="Replay";}
+  }
+  function play(){reset();running=true;$("#demoPlay").textContent="Restart";last=performance.now();raf=requestAnimationFrame(frame);}
+  function skip(){reset();t=TM+1;rM.step(t);rA.step(t);$("#demoPlay").textContent="Replay";}
+  $("#demoPlay").addEventListener("click",play);
+  $("#demoSkip").addEventListener("click",skip);
+  $$("[data-speed]").forEach(function(b){b.addEventListener("click",function(){speed=+b.dataset.speed;$$("[data-speed]").forEach(function(x){x.setAttribute("aria-pressed",String(x===b));});});});
+  reset();
+  /* resting state: show finished assisted draft so the panel is meaningful before Play */
+  $("#aComp").innerHTML='<span class="cap">Auto Assist suggestion</span>'+AA_HTML;$("#aSrc").hidden=false;
+  return {TM:TM,TA:TA,manual:manual,assisted:assisted};
+})();
+$("#annoToggle").addEventListener("click",function(){var p=$("#assisted");var on=p.classList.toggle("anno-on");p.classList.toggle("anno-off",!on);this.setAttribute("aria-pressed",String(on));this.textContent=on?"Hide annotations":"Show why the draft works";});
+
+/* ---------------- EMAIL ---------------- */
+$("#mailAnno").addEventListener("click",function(){var on=!$("#mailGood").classList.contains("anno-on");["#mailGood","#mailBad"].forEach(function(s){$(s).classList.toggle("anno-on",on);$(s).classList.toggle("anno-off",!on);});this.setAttribute("aria-pressed",String(on));this.textContent=on?"Hide annotations":"Show annotations";});
+
+/* ---------------- SMART REPLY ---------------- */
+(function(){
+  var DRAFT='<p><span class="s" data-src="2 3">Hey Maya! Happy to help. I can see your line is active and connected to our partner network in Canada right now,<sup>2 3</sup></span> <span class="s" data-src="5">so your iPhone just needs Data Roaming turned on to use data there.<sup>5</sup></span></p>'+
+   '<ol class="s" data-src="1 6"><li>Go to Settings &gt; Cellular &gt; Cellular Data and select your Northline line.</li><li>Tap your Northline line, then Cellular Data Options, and turn on Data Roaming.</li></ol>'+
+   '<p><span class="s" data-src="2">Roaming in Canada is included on your plan, so you’re all set once that’s on.<sup>2</sup></span></p>'+
+   '<p><span class="s" data-src="4">I’m right here if that doesn’t do the trick!<sup>4</sup></span></p>';
+  var body=$("#srBody"), status=$("#srStatus"), timers=[];
+  function mod(n){return $('.cmod[data-mod="'+n+'"]');}
+  function setMod(n,state,label){var m=mod(n);m.classList.remove("idle");m.classList.toggle("hl",state==="active");var st=$("[data-st]",m);if(label){st.textContent=label;st.className="st "+(label==="flagged"?"wait":"ok");}}
+  function setCall(n,state){var c=$('[data-call="'+n+'"]');c.textContent=state==="run"?"running":"ok";c.className="st "+(state==="run"?"wait":"ok");}
+  function later(ms,fn){timers.push(setTimeout(fn,RM?0:ms));}
+  function bindSources(){
+    $$(".s",body).forEach(function(s){
+      s.setAttribute("tabindex","0");
+      var srcs=(s.dataset.src||"").split(" ");
+      function on(){srcs.forEach(function(n){mod(n).classList.add("hl");});s.classList.add("hl");}
+      function off(){srcs.forEach(function(n){mod(n).classList.remove("hl");});s.classList.remove("hl");}
+      s.addEventListener("mouseenter",on);s.addEventListener("mouseleave",off);s.addEventListener("focus",on);s.addEventListener("blur",off);
+    });
+  }
+  function reset(){
+    timers.forEach(clearTimeout);timers=[];
+    $$(".cmod").forEach(function(m){m.classList.add("idle");m.classList.remove("hl");var st=$("[data-st]",m);st.textContent="waiting";st.className="st na";});
+    $$("[data-call]").forEach(function(c){c.textContent="queued";c.className="st na";});
+    body.innerHTML='<span class="muted">The draft appears here after the context checks finish.</span>';body.setAttribute("contenteditable","false");
+    status.textContent="Idle. Press Run.";$("#srSent").hidden=true;$("#srProc").textContent="Service troubleshooting · eSIM data";$("#srProcNote").textContent="Matched on the message text";
+    ["#srAccept","#srEdit","#srDismiss"].forEach(function(s){$(s).disabled=true;});$("#srEdit").textContent="Edit";
+    $("#srActNote").textContent="The agent decides. Nothing sends on its own.";
+  }
+  function run(){
+    reset();status.textContent="Retrieving playbook…";
+    setMod(1,"active");
+    later(600,function(){setMod(1,"done","found");status.textContent="Calling read-only tools…";setCall(1,"run");setCall(2,"run");setCall(3,"run");});
+    later(1200,function(){setCall(1,"ok");setMod(2,"active");});
+    later(1500,function(){setCall(2,"ok");setMod(2,"done","ok");});
+    later(1750,function(){setCall(3,"ok");setMod(3,"done","abroad");});
+    later(2000,function(){setMod(4,"done","from chat");status.textContent="Choosing the branch…";});
+    later(2250,function(){setMod(5,"active");setMod(1,"active");$("#srProc").textContent="Roaming troubleshooting · data abroad";$("#srProcNote").textContent="Re-routed on live network data";status.textContent="Re-routing: customer is abroad…";});
+    later(2650,function(){setMod(1,"done","re-routed");setMod(5,"done","re-routed");setMod(6,"done","flagged");status.textContent="Drafting…";body.innerHTML="";});
+    var parts=DRAFT.match(/<(p|ol)[\s\S]*?<\/(p|ol)>/g);
+    parts.forEach(function(part,i){later(2950+i*380,function(){var w=document.createElement("div");w.innerHTML=part;var n=w.firstChild;n.style.opacity="0";n.style.transition="opacity .4s";body.appendChild(n);requestAnimationFrame(function(){n.style.opacity="1";});});});
+    later(2950+parts.length*380+200,function(){
+      $$(".cmod").forEach(function(m){m.classList.remove("hl");});bindSources();
+      status.textContent="Ready for review · re-routed on live data · 1 item it can't see";
+      ["#srAccept","#srEdit","#srDismiss"].forEach(function(s){$(s).disabled=false;});
+    });
+  }
+  $("#srRun").addEventListener("click",run);
+  $("#srReset").addEventListener("click",reset);
+  $("#srAccept").addEventListener("click",function(){
+    $("#srSentBody").innerHTML=body.innerHTML;$$("#srSentBody sup").forEach(function(s){s.remove();});
+    $("#srSent").hidden=false;body.innerHTML='<span class="muted">Sent. The agent approved this draft.</span>';body.setAttribute("contenteditable","false");
+    ["#srAccept","#srEdit","#srDismiss"].forEach(function(s){$(s).disabled=true;});status.textContent="Sent by the agent";$("#srActNote").textContent="Logged for replay and testing.";
+  });
+  $("#srEdit").addEventListener("click",function(){var on=body.getAttribute("contenteditable")!=="true";body.setAttribute("contenteditable",String(on));this.textContent=on?"Done editing":"Edit";status.textContent=on?"Editing. Change anything before sending.":"Edited by the agent";if(on)body.focus();});
+  $("#srDismiss").addEventListener("click",function(){body.innerHTML='<span class="muted">Dismissed. The agent writes their own reply, and the dismissal is a signal for testing.</span>';["#srAccept","#srEdit","#srDismiss"].forEach(function(s){$(s).disabled=true;});status.textContent="Dismissed";});
+  /* resting state: finished run so the panel reads complete before interaction */
+  var saved=RM; RM=true; run(); RM=saved;
+})();
+
+/* ---------------- CALCULATOR ---------------- */
+(function(){
+  var inA=$("#inA"),inB=$("#inB"),inS=$("#inShare"),inT=$("#inSec"),inR=$("#inRpc"),inU=$("#inUse");
+  var CONV=178000;
+  function replies(n,share){return Math.round(n*share/100);}
+  function mmss(s){var m=Math.floor(s/60),r=Math.round(s%60);return m+":"+(r<10?"0":"")+r;}
+  function minsText(s){var m=Math.floor(s/60),r=Math.round(s%60);return r?m+" min "+r+" s":m+" min";}
+  function ticks(box,n,share,sec){
+    box.innerHTML="";var k=0;
+    for(var i=0;i<n;i++){var ag=Math.floor((i+1)*share/100)>Math.floor(i*share/100);var d=document.createElement("span");d.className="tk"+(ag?" ag":"");box.appendChild(d);if(ag&&sec>0){(function(d,k){setTimeout(function(){d.classList.add("sv");},RM?0:k*18);})(d,k);k++;}}
+  }
+  function chart(A,B,share,sec){
+    var s=$("#sens");s.innerHTML="";var W=420,H=240,L=44,R=86,T=14,Bm=36;
+    var maxX=120, maxY=Math.max(1,replies(B,share)*maxX/60);
+    var niceY=Math.ceil(maxY/10)*10; if(niceY<10)niceY=10;
+    function X(v){return L+(W-L-R)*v/maxX;} function Y(v){return H-Bm-(H-T-Bm)*v/niceY;}
+    for(var g=0;g<=4;g++){var yv=niceY*g/4;el("line",{x1:L,x2:W-R,y1:Y(yv),y2:Y(yv),stroke:"#242c36","stroke-width":1},s);var tl=el("text",{x:L-8,y:Y(yv)+4,"text-anchor":"end","font-size":"10.5",fill:"#858a92","font-family":"IBM Plex Mono, monospace"},s);tl.textContent=Math.round(yv);}
+    [0,30,60,90,120].forEach(function(xv){var tx=el("text",{x:X(xv),y:H-Bm+16,"text-anchor":"middle","font-size":"10.5",fill:"#858a92","font-family":"IBM Plex Mono, monospace"},s);tx.textContent=xv+"s";});
+    var yl=el("text",{x:L,y:T-2,"font-size":"10.5",fill:"#858a92","font-family":"IBM Plex Mono, monospace"},s);yl.textContent="min saved";
+    var xl=el("text",{x:(L+W-R)/2,y:H-4,"text-anchor":"middle","font-size":"10.5",fill:"#858a92","font-family":"IBM Plex Mono, monospace"},s);xl.textContent="net seconds saved per agent reply";
+    [[A,"#62e3ff","A"],[B,"#7b93ff","B"]].forEach(function(c){
+      var r=replies(c[0],share);var y2=r*maxX/60;
+      el("path",{d:"M"+X(0)+","+Y(0)+" L"+X(maxX)+","+Y(y2)+" L"+X(maxX)+","+Y(0)+"Z",fill:c[1],opacity:.07},s);
+      el("line",{x1:X(0),y1:Y(0),x2:X(maxX),y2:Y(y2),stroke:c[1],"stroke-width":2},s);
+      var cy=r*sec/60;el("circle",{cx:X(sec),cy:Y(cy),r:5,fill:c[1],stroke:"#0a0c0f","stroke-width":2},s);
+      var lb=el("text",{x:X(maxX)+6,y:Y(y2)+4,"font-size":"11",fill:c[1],"font-family":"IBM Plex Sans, sans-serif"},s);lb.textContent=c[2]+" · "+c[0]+" msgs";
+    });
+    el("line",{x1:X(sec),x2:X(sec),y1:T,y2:H-Bm,stroke:"#f3b65c","stroke-dasharray":"3 3","stroke-width":1},s);
+  }
+  function update(){
+    var A=+inA.value,B=+inB.value,share=+inS.value,sec=+inT.value;
+    $("#oA").textContent=A;$("#oB").textContent=B;$("#oShare").textContent=share+"%";$("#oSec").textContent=sec+"s";
+    $("#lA").textContent=A;$("#lB").textContent=B;$("#scShare").textContent=share+"%";
+    var rA=replies(A,share),rB=replies(B,share);
+    var exA=(A*share/100)%1!==0, exB=(B*share/100)%1!==0;
+    $("#rA").textContent=(exA?"≈ ":"")+rA+" agent replies";$("#rB").textContent=(exB?"≈ ":"")+rB+" agent replies";
+    var sA=rA*sec,sB=rB*sec;
+    $("#bigA").innerHTML=mmss(sA)+"<small>min</small>";$("#bigB").innerHTML=mmss(sB)+"<small>min</small>";
+    $("#sA").textContent=rA+" × "+sec+"s = "+fmt(sA)+"s = "+minsText(sA);
+    $("#sB").textContent=rB+" × "+sec+"s = "+fmt(sB)+"s = "+minsText(sB);
+    ticks($("#tkA"),A,share,sec);ticks($("#tkB"),B,share,sec);
+    var rows=[15,30,45];var h='<thead><tr><th>Net saved per reply</th><th>'+A+' messages</th><th>'+B+' messages</th></tr></thead><tbody>';
+    rows.forEach(function(r){h+='<tr class="'+(r===sec?"cur":"")+'"><td>'+r+' seconds</td><td>'+minsText(rA*r)+'</td><td>'+minsText(rB*r)+'</td></tr>';});
+    if(rows.indexOf(sec)<0)h+='<tr class="cur"><td>'+sec+' seconds (yours)</td><td>'+minsText(sA)+'</td><td>'+minsText(sB)+'</td></tr>';
+    $("#scTable").innerHTML=h+'</tbody>';
+    chart(A,B,share,sec);
+    $("#arith").innerHTML=
+      "<b>Conversation A</b><br>"+A+" messages × "+share+"% agent share = "+(A*share/100)+(exA?" → rounded to "+rA:"")+" agent replies<br>"+rA+" replies × "+sec+" s = <b>"+fmt(sA)+" s</b> = "+minsText(sA)+"<br><br>"+
+      "<b>Conversation B</b><br>"+B+" messages × "+share+"% agent share = "+(B*share/100)+(exB?" → rounded to "+rB:"")+" agent replies<br>"+rB+" replies × "+sec+" s = <b>"+fmt(sB)+" s</b> = "+minsText(sB)+"<br><br>"+
+      "Doubling the conversation length doubles the agent replies, so the modeled saving doubles with it. The per-reply figure is the assumption that matters most; the chart shows how fast the result moves with it.";
+    var R=+inR.value,U=+inU.value;$("#oRpc").textContent=R;$("#oUse").textContent=U+"%";
+    var used=CONV*R*U/100, secs=used*sec, hrs=secs/3600;
+    $("#scale").innerHTML=fmt(CONV)+" conversations × "+R+" agent replies × "+U+"% drafts used = "+fmt(Math.round(used))+" replies<br>"+fmt(Math.round(used))+" × "+sec+" s = "+fmt(Math.round(secs))+" s ≈ <b>"+fmt(Math.round(hrs))+" agent-hours a month</b><br><span style='color:var(--amber)'>Modeled capacity potential from your assumptions. Not a measured saving, not a cost figure.</span>";
+  }
+  [inA,inB,inS,inT,inR,inU].forEach(function(i){i.addEventListener("input",update);});
+  update();
+  /* stacked bar from demo */
+  var manualSeg=[["Read",10,"#858a92"],["Holding msg",6,"#7b93ff"],["Look up and read",78,"#f3b65c"],["Write",58,"#bdb7ac"],["Link and send",10,"#62e3ff"]];
+  var aiSeg=[["Read",13,"#858a92"],["Review draft",22,"#86dba7"],["Check source",5,"#f3b65c"],["Send",3,"#62e3ff"]];
+  var tot=manualSeg.reduce(function(a,s){return a+s[1];},0);
+  function row(name,segs){var sum=segs.reduce(function(a,s){return a+s[1];},0);var bar=segs.map(function(s){return '<span title="'+s[0]+': '+s[1]+'s" style="width:'+(s[1]/tot*100)+'%;background:'+s[2]+'"></span>';}).join("");return '<div class="row"><span>'+name+'</span><div class="bar">'+bar+'</div><span class="mono tnum">'+sum+'s</span></div>';}
+  var legend=manualSeg.concat(aiSeg).filter(function(s,i,a){return a.findIndex(function(x){return x[0]===s[0];})===i;}).map(function(s){return '<span style="display:inline-flex;align-items:center;gap:6px;margin-right:12px"><i style="width:10px;height:10px;border-radius:2px;background:'+s[2]+';display:inline-block"></i>'+s[0]+'</span>';}).join("");
+  $("#stack").innerHTML=row("Manual",manualSeg)+row("Draft review",aiSeg)+'<div class="small muted" style="margin-top:4px">'+legend+'</div>';
+})();
+
+/* ---------------- RELIABILITY ---------------- */
+(function(){
+  var STEPS=[
+   ["Detect","Watch real conversations, not just test cases.","Live drafts, agent reports and test chats. I batch the evidence first, because one odd answer is not a pattern."],
+   ["Classify","Name the failure pattern.","Every failure maps to a named pattern, A to E below. The name tells you where to look before anyone touches wording."],
+   ["Isolate","Find the structural cause, not the bad sentence.","Wrong price? Check what the AI read before rewriting what it said. Most changes I shipped were structural: routing, gates, or which playbook owns a fact."],
+   ["Change","Write a precise find-and-replace.","Each change matches verbatim text from today's live playbook, never a saved copy, because live text drifts. Full rewrites only by agreement."],
+   ["Test","Prove the match and the content.","Scripts check that each match is found exactly once, then scan for em dashes, banned words, stale dates and conflicting figures."],
+   ["Regress","Rerun the questions that used to pass.","A regression set of customer questions per playbook, rerun in a test environment before anything is published."],
+   ["Release","Ship related changes together.","Coordinated batches, so two playbooks never disagree halfway through a release. Time-limited content ships with its retirement change already written."],
+   ["Monitor","Record it, then watch.","Every change goes into the changelog and decisions log, tied to a confirmed fact and a ruling. Then back to step one."]
+  ];
+  var box=$("#cycle");
+  STEPS.forEach(function(s,i){var b=document.createElement("button");b.className="cy-step";b.setAttribute("aria-pressed",i===0?"true":"false");b.innerHTML="<i>"+(i+1)+"</i><span>"+s[0]+"</span>";b.addEventListener("click",function(){sel(i);stopAuto();});box.appendChild(b);});
+  function sel(i){$$(".cy-step",box).forEach(function(b,j){b.setAttribute("aria-pressed",String(i===j));});$("#cyKicker").textContent="Step "+(i+1)+" · "+STEPS[i][0];$("#cyTitle").textContent=STEPS[i][1];$("#cyBody").textContent=STEPS[i][2];cur=i;}
+  var cur=0,auto=null;sel(0);
+  function stopAuto(){if(auto){clearInterval(auto);auto=null;}}
+  if(!RM&&"IntersectionObserver" in window){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting&&!auto&&cur===0){auto=setInterval(function(){if(cur>=STEPS.length-1){stopAuto();return;}sel(cur+1);},2600);io.disconnect();}});},{threshold:.6});io.observe(box);}
+})();
+
+/* ---------------- LEADERSHIP ---------------- */
+(function(){
+  var s=$("#leadSvg");var xs=[90,290,490,690,890,1090],y=110;
+  var names=["Expertise","Framework","Training","Quality","Handover","Continuity"];
+  var d="M"+xs[0]+","+y;for(var i=1;i<xs.length;i++){d+=" C"+(xs[i-1]+100)+","+(y-40*(i%2?1:-1))+" "+(xs[i]-100)+","+(y+40*(i%2?1:-1))+" "+xs[i]+","+y;}
+  el("path",{d:d,fill:"none",stroke:"#62e3ff","stroke-opacity":.25,"stroke-width":1.2},s);
+  var main=el("path",{d:d,fill:"none",stroke:"#62e3ff","stroke-width":1.6,"stroke-dasharray":"2 10",filter:"url(#glow)"},s);
+  if(!RM){var off=0;(function an(){off-=0.6;main.setAttribute("stroke-dashoffset",off);requestAnimationFrame(an);})();}
+  /* node 1: one person */
+  el("circle",{cx:xs[0],cy:y,r:9,fill:"#62e3ff"},s);
+  /* node 2: documents */
+  for(var k=0;k<3;k++){el("rect",{x:xs[1]-16+k*6,y:y-20+k*5,width:22,height:28,rx:2,fill:"#141920",stroke:"#7b93ff","stroke-width":1},s);}
+  /* node 3: cohorts of 3-4 */
+  var co=[3,4,3,4,4];co.forEach(function(n,ci){for(var j=0;j<n;j++){el("circle",{cx:xs[2]-40+ci*20,cy:y-24+j*14,r:3.6,fill:"#7b93ff",opacity:.85},s);}});
+  /* node 4: check ring */
+  el("circle",{cx:xs[3],cy:y,r:18,fill:"none",stroke:"#f3b65c","stroke-width":1.4},s);
+  el("path",{d:"M"+(xs[3]-7)+","+y+" l5,5 l10,-11",fill:"none",stroke:"#f3b65c","stroke-width":2},s);
+  /* node 5: three leads */
+  [-28,0,28].forEach(function(dy){el("path",{d:"M"+(xs[4]-30)+","+y+" C"+(xs[4]-10)+","+y+" "+(xs[4]-10)+","+(y+dy)+" "+(xs[4]+10)+","+(y+dy),fill:"none",stroke:"#62e3ff","stroke-opacity":.6},s);el("circle",{cx:xs[4]+14,cy:y+dy,r:6,fill:"#141920",stroke:"#62e3ff","stroke-width":1.4},s);});
+  el("circle",{cx:xs[4]-30,cy:y,r:5,fill:"#62e3ff"},s);
+  /* node 6: steady rings */
+  [8,16,24].forEach(function(r,i){el("circle",{cx:xs[5],cy:y,r:r,fill:"none",stroke:"#62e3ff","stroke-opacity":.7-i*.2},s);});
+  names.forEach(function(n,i){var t=el("text",{x:xs[i],y:y+66,"text-anchor":"middle","font-size":"14",fill:"#f3eee5","font-family":"Newsreader, Georgia, serif"},s);t.textContent=n;});
+  var subs=["what I knew","written down","taught to cohorts","checked and recorded","three leads took it","runs without me"];
+  subs.forEach(function(n,i){var t=el("text",{x:xs[i],y:y+86,"text-anchor":"middle","font-size":"11",fill:"#858a92","font-family":"IBM Plex Mono, monospace"},s);t.textContent=n;});
+})();
+
+/* ---------------- COPY ---------------- */
+$$("[data-copy]").forEach(function(b){b.addEventListener("click",function(){var t=document.getElementById(b.dataset.copy).textContent;var done=function(){b.textContent="Copied";setTimeout(function(){b.textContent="Copy";},1600);};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,function(){sel();});}else sel();
+  function sel(){var r=document.createRange();r.selectNodeContents(document.getElementById(b.dataset.copy));var s=window.getSelection();s.removeAllRanges();s.addRange(r);b.textContent="Selected";}
+});});
+
+})();
+</script>
+</body>
+</html>
